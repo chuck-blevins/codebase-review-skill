@@ -102,6 +102,15 @@ version-over-version `deltas` automatically.
 The default output location is `<repo>/documents/code-review/<date>_<sha>/`. Change the path in
 `SKILL.md` if your project stores docs elsewhere.
 
+**Nothing is overwritten.** Re-running a review at the same date and commit emits a new version
+alongside the old one — `findings.v2.json`, `feature-inventory.v2.csv`, and so on — so an earlier run
+is never lost. Diffing two versions of the inventory is how you see what changed.
+
+Documents *you* put in `documents/` are read-only to the skill. It will not parse them, reconcile
+against them, or edit them. That includes anything built from an exported inventory: an enriched sheet,
+a value repository, a positioning deck. Ask it to revise one and it writes a new version alongside and
+leaves your original alone.
+
 ## Files
 
 - **`SKILL.md`** — the instructions the agent follows (process, rules, voice, versioning).

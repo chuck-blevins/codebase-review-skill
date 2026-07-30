@@ -1,8 +1,9 @@
 ---
 created: 2026-07-29
+revised: 2026-07-29 (rescoped — data flow inverted, see Rescope note)
 type: spec
 status: draft — awaiting red-line
-topic: value-coverage reuse profile for the codebase-review skill
+topic: feature-inventory emission for the codebase-review skill
 target-version: 2.2.0 (from 2.1.0)
 domains:
   - software-engineering
@@ -16,442 +17,349 @@ tags:
   - json-schema
 ---
 
-# Spec — value-coverage reuse profile
+# Spec — feature inventory emission
 
-Adds a fourth output to the codebase-review skill: a reconciliation of a repo's **feature/value
-repository** (a sales-side feature inventory) against what the code actually implements. Rendered as
-a standalone report plus a CSV, both derived from `findings.json`.
+Adds one output to the codebase-review skill: a **feature inventory** derived from the code, at
+feature grain, with an implementation state and evidence on every row. It is a handoff artifact for
+whoever owns revenue positioning. The skill establishes what exists and what is real; a rev ops
+reader adds the value judgment.
 
-Follows the documented extension path in `CONTRIBUTING.md` → *Add reuse profiles*: "new outputs are
-just new renderings of it. To add a profile, write a new template that reads the same
-`findings.json`."
+## Rescope note
 
-## Decisions already locked
+The first draft of this spec ran the data the other way: a sales-authored feature inventory
+(94 screenshot-sourced features, value-tagged) would be **consumed** by the review and reconciled
+against the code. That was wrong in a way worth recording.
 
-1. **Separate output file**, not folded into the founder or technical report.
-2. **CSV emitted alongside** the HTML.
-3. **`valueCoverage` stays the data key**; the file is named for its reader
-   (`feature-coverage-report.html`).
-4. **All coverage state lives in `findings.json`.** Renderings are projections. Versioning and
-   deltas diff the JSON.
-5. **Founder report keeps a mandatory one-sentence headline** with the number and its denominator,
-   plus a link. Not a table, never zero.
-6. **Scorecard is not touched.** Adding a dimension would break comparability with prior reviews,
-   since `scorecard[].dimension` is a fixed enum that deltas key on.
+The code is the ground truth for what features exist. A screenshot crawl is a lossy, manual,
+drift-prone proxy for it. Deriving the inventory from the code makes it accurate by construction,
+re-derivable on every review, and — because the skill then owns the id space — actually diffable
+across versions.
 
-## Before touching anything
+Inverting the flow removes: the coarse-vs-fine grain matching problem, the four-state reconciliation
+enum, `.docx` parsing, inventory-date provenance, and the severity-escalation rule in `rubric.md`.
+Five of the previous draft's open questions no longer exist. One new problem appears and is the main
+thing to get right: **feature granularity and id stability** (§6).
 
-`/Users/chuckblevins/SynologyDrive/03 Projects/llm_skills/codebase-review` **is not a git
-repository** and has no version control. Copy the directory before any edit lands. Every change
-below is additive and gated, but there is no undo.
+The consumption half is not dead, only deferred. See *Phase 2, explicitly out of scope*.
+
+## Governing principle
+
+**The schema holds only what the code can prove.**
+
+Value codes, business-value prose, sales categories, and stakeholder archetypes do not appear in
+`findings.json` — not even as empty fields. They exist only as blank columns in the emitted CSV, for
+a human to fill. An empty field in the schema is an invitation for the model to fill it in; a blank
+column in a spreadsheet handed to rev ops is a task assignment.
+
+## Decisions carried forward from the first draft
+
+1. Separate output file, not folded into the founder or technical report.
+2. CSV is the working artifact.
+3. All state lives in `findings.json`; the CSV is a mechanical projection.
+4. Founder report keeps a mandatory one-sentence headline plus a pointer.
+5. Scorecard untouched — `scorecard[].dimension` is a fixed enum that deltas key on.
+
+Dropped from the first draft: `meta.valueRepository`, `valueCoverage`, the `rubric.md` value-weighting
+axis, `severityBase`/`severityBasis`, `finding.category: "value-coverage"`, the
+`feature-coverage-report.html` template, and the `recommendation` value fields. All of them were
+downstream of consuming an external document.
 
 ## File manifest
 
 | File | Change | Risk |
-|---|---|---|
-| `schema/findings.schema.json` | Additive: 1 new top-level object, 4 field groups | Low — all optional |
-| `rubric.md` | New section + 1 bullet in an existing section | Medium — touches severity |
-| `SKILL.md` | 7 edits incl. version bump and a renumbered step list | Low |
-| `templates/technical-report.html` | 2 columns on an existing table | Low |
+| --- | --- | --- |
+| `schema/findings.schema.json` | Additive: 1 new top-level array, 1 meta object, 1 `capabilityMap` field | Low — all optional |
+| `SKILL.md` | 6 edits incl. version bump, new review step, grain rule | Medium — the grain rule is load-bearing |
+| `templates/feature-inventory.csv` | **New** (header/grain contract) | New surface |
+| `templates/technical-report.html` | 1 column on an existing table | Low |
 | `templates/founder-report.html` | 1 optional block + 1 CSS rule | Low |
-| `templates/feature-coverage-report.html` | **New file** | New surface |
-| `templates/feature-coverage.csv` | **New file** (header/grain contract) | New surface |
 | `CONTRIBUTING.md`, `README.md` | Sync per *Keep things in sync* | Low |
+| `rubric.md` | **No change** | — |
 
 ---
 
 ## 1. `schema/findings.schema.json`
 
-### 1a. `meta.valueRepository` — new, optional
-
-Presence of this object is the **gate** for every other behavior in this spec.
+### 1a. `featureInventory` — new top-level array
 
 ```jsonc
-"valueRepository": {
-  "type": "object",
-  "description": "Optional. A feature/value inventory found in the repo that this review reconciles against. When absent, no coverage outputs are emitted and the review behaves exactly as 2.1.0.",
-  "required": ["path", "featureCount", "taxonomy"],
-  "properties": {
-    "path": { "type": "string", "description": "Repo-relative path to the source inventory." },
-    "asOf": { "type": "string", "description": "Date the inventory reflects. Read from a date stated inside the document, or ask. Never infer from file mtime." },
-    "featureCount": { "type": "integer", "description": "Total catalogued features. The denominator." },
-    "taxonomy": {
-      "type": "array",
-      "description": "Read verbatim from the source document's legend. Never hardcode a project's codes into the skill.",
-      "items": {
-        "type": "object",
-        "required": ["code", "meaning"],
-        "properties": {
-          "code": { "type": "string" },
-          "meaning": { "type": "string" },
-          "revenueAdjacent": {
-            "type": "boolean",
-            "description": "True for codes that gate revenue capture or retention. Drives the value-weighting rule in rubric.md. Set from the taxonomy's own wording and record the reasoning in methodology.approach."
-          }
-        }
-      }
-    },
-    "categories": {
-      "type": "array",
-      "description": "Optional sales-facing grouping, if the source documents provide one.",
-      "items": {
-        "type": "object",
-        "required": ["name"],
-        "properties": {
-          "name": { "type": "string" },
-          "modules": { "type": "array", "items": { "type": "string" } },
-          "featureIds": { "type": "array", "items": { "type": "string" } },
-          "speaksTo": { "type": "array", "items": { "type": "string" }, "description": "Stakeholder archetypes, verbatim from the source. Renders only in the coverage report." }
-        }
-      }
+"featureInventory": {
+  "type": "array",
+  "description": "Code-derived inventory of user-facing features, at the grain defined by SKILL.md's feature grain rule. The fine-grained expansion of capabilityMap. Optional: emitted when the reviewer is asked for an inventory or when the repo already has one under documents/.",
+  "items": {
+    "type": "object",
+    "required": ["featureId", "name", "plainLanguage", "state", "evidence", "confidence", "basis"],
+    "properties": {
+      "featureId": {
+        "type": "string",
+        "description": "Minted by the skill. Append-only, never renumbered or reused. See SKILL.md id stability rule."
+      },
+      "name": { "type": "string", "description": "Short feature name a non-engineer would recognize." },
+      "plainLanguage": { "type": "string", "description": "What it does, for a non-engineer. One or two sentences." },
+      "area": { "type": "string", "description": "Product area or module the feature sits in, from the code's own structure (route group, directory). Not a sales category." },
+      "capability": { "type": "string", "description": "Name of the capabilityMap[] entry this rolls up to." },
+      "state": {
+        "type": "string",
+        "enum": ["implemented", "partial", "ui-only", "removed"],
+        "description": "implemented = works end to end. partial = some of it real, some not. ui-only = screen renders from mock or sample data, no working backend. removed = present in a prior review's inventory, no longer in the code."
+      },
+      "evidence": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "$ref": "#/$defs/evidence" },
+        "description": "Cite-or-assume applies. 'partial' cites both the working part and the gap. 'ui-only' cites the mock or sample-data source."
+      },
+      "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+      "basis": { "type": "string", "enum": ["documented", "inferred"] },
+      "firstSeen": { "type": "string", "description": "Review date the id was minted. Carried forward unchanged." }
     }
   }
 }
 ```
 
-### 1b. `valueCoverage` — new top-level, optional
+### 1b. `meta.featureInventory` — new, optional
+
+Present whenever `featureInventory` is. Exists to keep the id space honest across versions.
 
 ```jsonc
-"valueCoverage": {
+"featureInventory": {
   "type": "object",
-  "description": "Reconciliation of the value repository against the code. Emitted only when meta.valueRepository is present.",
-  "required": ["denominator", "headline", "features", "byCode"],
+  "required": ["count", "idHighWater"],
   "properties": {
-    "denominator": {
-      "type": "string",
-      "description": "Plain-language statement of what every count is out of, e.g. '94 catalogued UI-observed features as of 2026-07-29'. Rendered verbatim anywhere a percentage appears."
+    "count": { "type": "integer", "description": "Rows in featureInventory, excluding state 'removed'. The denominator for any percentage." },
+    "idHighWater": { "type": "string", "description": "Highest id minted so far, e.g. 'F094'. Next review mints from here. Never decreases." },
+    "grainRuleVersion": { "type": "integer", "description": "Bump when SKILL.md's grain rule changes. Two reviews with different values are not comparable — say so in deltas rather than reporting churn." },
+    "stateCounts": {
+      "type": "object",
+      "description": "Computed rollup. implemented + partial + uiOnly MUST equal count.",
+      "properties": {
+        "implemented": { "type": "integer" },
+        "partial": { "type": "integer" },
+        "uiOnly": { "type": "integer" },
+        "removed": { "type": "integer" }
+      }
     },
     "headline": {
       "type": "string",
-      "description": "One sentence, founder voice, carrying the number AND its denominator. Rendered in the founder report. Required when this object exists."
-    },
-
-    "features": {
-      "type": "array",
-      "description": "THE GRAIN. One row per catalogued feature. byCode and byCategory are computed from this, and the CSV is a direct projection of it.",
-      "items": {
-        "type": "object",
-        "required": ["featureId", "name", "valueCode", "state"],
-        "properties": {
-          "featureId": { "type": "string", "description": "Stable id from the source inventory, e.g. 'F033'." },
-          "name": { "type": "string" },
-          "module": { "type": "string", "description": "Source inventory's module grouping." },
-          "category": { "type": "string", "description": "Matches a meta.valueRepository.categories[].name." },
-          "valueCode": { "type": "string", "description": "Must be one of meta.valueRepository.taxonomy[].code." },
-          "state": {
-            "type": "string",
-            "enum": ["implemented", "partial", "ui-only", "absent"],
-            "description": "implemented = working code end to end. partial = some of it real, some not. ui-only = screen renders, no working backend. absent = catalogued but not found in code at all."
-          },
-          "capability": { "type": "string", "description": "Name of the capabilityMap[] entry this rolls up to." },
-          "evidence": {
-            "type": "array",
-            "minItems": 1,
-            "items": { "$ref": "#/$defs/evidence" },
-            "description": "Cite-or-assume applies. For 'partial', cite both the working part and the gap. For 'ui-only', cite the mock/sample data source."
-          },
-          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
-        }
-      }
-    },
-
-    "byCode": {
-      "type": "array",
-      "description": "Computed from features[]. Integrity rule: implemented + partial + uiOnly + absent MUST equal catalogued on every row.",
-      "items": {
-        "type": "object",
-        "required": ["code", "catalogued", "implemented", "partial", "uiOnly", "absent", "businessMeaning"],
-        "properties": {
-          "code": { "type": "string" },
-          "catalogued": { "type": "integer" },
-          "implemented": { "type": "integer" },
-          "partial": { "type": "integer" },
-          "uiOnly": { "type": "integer" },
-          "absent": { "type": "integer" },
-          "businessMeaning": { "type": "string", "description": "One plain-language sentence. Founder voice." }
-        }
-      }
-    },
-
-    "byCategory": {
-      "type": "array",
-      "description": "Same counts at the sales-facing grain. Omit when meta.valueRepository.categories is absent.",
-      "items": {
-        "type": "object",
-        "required": ["name", "catalogued", "implemented", "partial", "uiOnly", "absent"],
-        "properties": {
-          "name": { "type": "string" },
-          "catalogued": { "type": "integer" },
-          "implemented": { "type": "integer" },
-          "partial": { "type": "integer" },
-          "uiOnly": { "type": "integer" },
-          "absent": { "type": "integer" },
-          "speaksTo": { "type": "array", "items": { "type": "string" } },
-          "businessMeaning": { "type": "string" }
-        }
-      }
-    },
-
-    "uncataloguedCapabilities": {
-      "type": "array",
-      "description": "The reverse gap: working code the inventory does not catalogue. The only findings that flow back INTO the sales document.",
-      "items": {
-        "type": "object",
-        "required": ["capability", "evidence"],
-        "properties": {
-          "capability": { "type": "string" },
-          "plainLanguage": { "type": "string" },
-          "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
-          "suggestedValueCode": { "type": "string", "description": "Inferred. Mark basis accordingly." }
-        }
-      }
-    },
-
-    "developerQuestions": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Generated from features[] where state is ui-only or partial. Feeds the coverage report's closing section."
+      "description": "One sentence, founder voice, carrying the counts AND the denominator. Rendered in the founder report. Required when featureInventory exists."
     }
   }
 }
 ```
 
-**Why `features[]` is the grain, and why it matters.** The 2026-07-13 review has 17 coarse
-capabilities against 94 fine-grained features. One capability spans many features, and a capability
-is frequently `partial` precisely because some of its features are real and others are not. If state
-lived only on `capabilityMap[]`, the per-code counts would have to attribute one state to every
-feature under that capability — which would be wrong, and the counts are the whole point. State
-belongs at feature grain; the capability keeps a coarse rollup badge for the technical report.
-
-Cost: roughly 94 small rows, ~15–20KB on an 86KB `findings.json`. Acceptable.
-
-### 1c. `capabilityMap[]` — three additive fields
+### 1c. `capabilityMap[]` — one additive field
 
 ```jsonc
-"featureIds": { "type": "array", "items": { "type": "string" }, "description": "Catalogued features this capability implements. Empty when the capability is uncatalogued." },
-"implementationState": { "type": "string", "enum": ["implemented", "partial", "ui-only", "absent"], "description": "Coarse rollup of the featureIds' states, for the technical report badge. Computed, not authored: any ui-only or absent among them makes the rollup 'partial' at best." },
-"uncatalogued": { "type": "boolean", "description": "Working code absent from the inventory. Kept as a separate flag rather than an implementationState value, because it answers a different question than 'how much of this is real'." }
+"featureIds": {
+  "type": "array",
+  "items": { "type": "string" },
+  "description": "featureInventory ids that roll up to this capability. Every inventory row belongs to exactly one capability; every capability with an empty array is a bug in the inventory."
+}
 ```
 
-### 1d. `finding` — three additive fields, one enum extension
-
-```jsonc
-"severityBase": { "type": "string", "enum": ["critical","high","medium","low","info"], "description": "Stage-anchored severity BEFORE value weighting. Version-over-version deltas compare this field, never `severity`." },
-"severityBasis": { "type": "string", "enum": ["stage", "stage+value"], "description": "Which axes produced `severity`." },
-"featureIds": { "type": "array", "items": { "type": "string" }, "description": "Catalogued features this finding touches. Drives value weighting." }
-```
-
-Extend `finding.category` enum with `"value-coverage"`.
-
-### 1e. `recommendation` — two additive fields
-
-```jsonc
-"unblocksFeatureIds": { "type": "array", "items": { "type": "string" } },
-"valueCodes": { "type": "array", "items": { "type": "string" }, "description": "Derived from unblocksFeatureIds. Drives ordering within each recommendation bucket." }
-```
+`capabilityMap` keeps its existing coarse grain and both existing reports render it unchanged. The
+inventory is its expansion, not its replacement.
 
 ---
 
-## 2. `rubric.md`
+## 2. `SKILL.md`
 
-### 2a. New section, inserted after *Stage calibration (the anti-drift rule)*
+**2a. Frontmatter.** `version: 2.1.0` → `2.2.0`. Append to `description`: "Can emit a code-derived
+feature inventory with per-feature implementation state, as a handoff artifact for revenue and
+product positioning."
 
-> ## Value weighting (third axis, optional)
->
-> Applies **only** when `meta.valueRepository` is present. The first two axes (what could happen ×
-> deployment stage) always run first and produce `severityBase`.
->
-> - A finding whose `featureIds` include any feature tagged with a **revenue-adjacent** code
->   (`taxonomy[].revenueAdjacent: true`) escalates **one** band from `severityBase`.
-> - Escalate **at most one band, at most once**, however many such features are touched.
-> - Never escalate above `critical`. Never escalate `info`.
-> - Codes that are purely internal-efficiency never escalate.
->
-> Record both: `severityBase` (stage-anchored), `severity` (post-escalation), and `severityBasis`.
->
-> This axis is mechanical on purpose. It reads a tag off a document; it is not a judgment call. If
-> applying it requires a judgment, the taxonomy's `revenueAdjacent` flags are wrong — fix those.
+**2b. *Core principle: findings first, reports second*** — add a fourth item, numbered `4.`:
 
-### 2b. New bullet in *Comparing across versions (score bands)*
+> **`feature-inventory.csv`** — a code-derived list of user-facing features, each with what it
+> does, where it lives, and whether it is backed by working code. Projected from
+> `featureInventory[]`. The columns a revenue owner needs to add (value category, business value,
+> sales grouping) are emitted **blank**. The review establishes what exists and what is real; it
+> does not assign business value.
 
-> - **Compare `severityBase`, never `severity`.** If `severity` moved but `severityBase` did not,
->   the sales taxonomy changed, not the code. Do not log a delta. A document edit must never
->   manufacture a code-review delta.
+**2c. *Output location & versioning convention*** — extend the tree:
 
----
-
-## 3. `SKILL.md`
-
-**3a. Frontmatter.** `version: 2.1.0` → `2.2.0`. Append to `description`: "Optionally reconciles a
-repo's feature/value inventory against the code to report which catalogued features are backed by
-working code."
-
-**3b. *Core principle: findings first, reports second*** — add a fourth item:
-
-> 4. **`feature-coverage-report.html` + `feature-coverage.csv`** — emitted only when a feature/value
->    inventory exists in the repo. Answers "what can we safely claim in a deal": which catalogued
->    features are backed by working code, which are demo-only, and which working capabilities the
->    inventory misses. Renders from `templates/feature-coverage-report.html`.
-
-**3c. *Output location & versioning convention*** — extend the tree:
-
-```
+```text
 <repo>/documents/code-review/<YYYY-MM-DD>_<shortSHA>/
     findings.json
     founder-report.html
     technical-report.html
-    feature-coverage-report.html    # only when a value repository was found
-    feature-coverage.csv            # only when a value repository was found
+    feature-inventory.csv           # when an inventory was requested or already exists
 ```
 
-**3d. *How to review*** — insert as new step 5, renumber old 5–10 to 6–11:
+Add: before minting ids, read the most recent prior `findings.json` for
+`meta.featureInventory.idHighWater` and the prior `featureInventory[]`, and follow the id stability
+rule in *Feature grain and id stability*.
 
-> 5. **Reconcile against a feature/value inventory, if one exists.** Look in `documents/` for a
->    feature inventory: a table with stable feature ids, a value-category legend, and a value tag per
->    feature. If found, record it in `meta.valueRepository` and resolve **every** catalogued feature
->    id to exactly one `state` (`implemented` / `partial` / `ui-only` / `absent`) with evidence.
->    Then compute `byCode` and `byCategory`, and record the reverse gap in
->    `uncataloguedCapabilities`. Prefer the machine-readable form of the inventory (`.md`/`.csv`)
->    over a `.docx`/`.xlsx` mirror of the same data.
+**2d. *How to review*** — insert as new step numbered `5.`, renumbering old 5–10 to 6–11:
 
-**3e. *Non-negotiable rules*** — two new bullets:
+> **Expand the capability map into a feature inventory, if asked for one** (or if the repo already
+> has one under `documents/`). Enumerate user-facing features at the grain defined in *Feature
+> grain and id stability*, assign each a `state` with evidence, and attach each to its parent
+> capability. Leave every value and positioning column blank — that is a revenue owner's judgment,
+> not the reviewer's.
 
-> - **Cite-or-assume applies to coverage.** Never mark a catalogued feature `implemented` without
->   `file:line` evidence. `partial` requires evidence of both the working part and the gap;
->   `ui-only` requires evidence of the mock or sample-data source.
-> - **Every coverage percentage states its denominator.** Render
->   `valueCoverage.denominator` verbatim alongside any percentage. A bare percentage reads as full
->   product coverage when it only ever describes the catalogued subset.
+**2e. *Non-negotiable rules*** — three new bullets:
 
-**3f. *Reuse profiles*** — add:
+> - **Never author a business-value judgment.** Value category, business-value prose, sales grouping,
+>   and buyer archetype are out of scope for this skill. Blank is the correct output. A plausible
+>   guess is worse than a blank, because a blank gets filled and a guess gets shipped.
+> - **Cite-or-assume applies per feature.** Never mark a feature `implemented` without `file:line`
+>   evidence. `partial` requires evidence of both the working part and the gap; `ui-only` requires
+>   evidence of the mock or sample-data source.
+> - **Every count states its denominator.** Render `meta.featureInventory.count` alongside any
+>   percentage. A bare percentage reads as the whole product.
 
-> - **Feature coverage** — populate `meta.valueRepository` and `valueCoverage`; renders a
->   sales/GTM-facing report plus a CSV at feature grain for filtering and pivoting.
+**2f. *Reuse profiles*** — add:
 
-**3g. *Output format*** — add:
-
-> - `feature-coverage.csv` is a mechanical projection of `valueCoverage.features[]`. Regenerate it;
->   never hand-edit it, and never let it drift from `findings.json`.
+> - **Feature inventory** — populate `featureInventory[]`; projects to a CSV at feature grain for a
+>   revenue owner to enrich. Once enriched, that document becomes an input a future version can read
+>   back (not yet supported).
 
 ---
 
+## 3. `templates/feature-inventory.csv` — new
+
+Header contract. Grain is one row per feature. The first block is filled by the review; the second
+block is emitted **empty, with headers present**.
+
+```csv
+feature_id,feature_name,what_it_does,area,capability,state,code_locations,evidence,confidence,basis,value_code,business_value,sales_category,speaks_to
+```
+
+| Columns | Owner |
+| --- | --- |
+| `feature_id` … `basis` | The review. Mechanical projection of `featureInventory[]`. |
+| `value_code`, `business_value`, `sales_category`, `speaks_to` | Rev ops. Always emitted blank. |
+
+- UTF-8, RFC 4180 quoting, `;`-joined multi-values inside a quoted cell.
+- Row order is `feature_id` order, so two versions diff cleanly.
+- Rows with `state: removed` are included, so a reader learns a feature they were positioning is gone.
+- A one-line preamble comment is **not** used — it breaks spreadsheet import. Provenance lives in the
+  containing dated folder and in `findings.json`.
+
 ## 4. `templates/technical-report.html`
 
-Two columns on the existing capability-map table. No new section, no TOC entry.
+One column on the existing capability-map table, line 94 `<thead>` and the row body at 97–102:
 
-Line 94 — `<thead>`:
 ```html
-<thead><tr><th>Capability</th><th>Description</th><th>Code locations</th><th>Basis</th>
-  <!-- COVERAGE COLS (delete both th and their td when valueCoverage is null) -->
-  <th>Features</th><th>State</th></tr></thead>
+<!-- INVENTORY COL (delete th and td when featureInventory is absent) -->
+<th>Features</th>
+...
+<td class="fid"><!-- REPEAT featureIds[] -->{{featureId}} <!-- /REPEAT --></td>
 ```
 
-Lines 97–102 — row body, appended before `</tr>`:
-```html
-        <!-- COVERAGE COLS -->
-        <td class="fid"><!-- REPEAT featureIds[] -->{{featureId}} <!-- /REPEAT --></td>
-        <td class="state-{{implementationState}}">{{implementationState}}</td>
-```
-
-Add CSS for `.state-implemented`, `.state-partial`, `.state-ui-only`, `.state-absent` matching the
-existing severity-chip treatment.
+No new section, no TOC entry. The per-feature detail lives in the CSV; a 90-row table in an HTML
+report is worse than a spreadsheet at every job a reader would use it for.
 
 ## 5. `templates/founder-report.html`
 
 One optional block after line 91 (`<p class="lead">{{executiveSummary}}</p>`):
 
 ```html
-  <!-- ============ COVERAGE CALLOUT (delete whole block if valueCoverage is null) ============ -->
-  <p class="coverage-callout">
-    {{valueCoverage.headline}}
-    <a href="feature-coverage-report.html">Full feature coverage breakdown &rarr;</a>
+  <!-- ============ INVENTORY CALLOUT (delete whole block if featureInventory is absent) ============ -->
+  <p class="inventory-callout">
+    {{meta.featureInventory.headline}}
+    <span class="meta-row">Full inventory: <code class="path">feature-inventory.csv</code></span>
   </p>
 ```
 
-`{{valueCoverage.headline}}` is required when the block renders — that is the mechanism enforcing
-locked decision 5. Add one CSS rule (left rule, tinted background, matching `.lead` type scale).
+`{{meta.featureInventory.headline}}` is required when the block renders — that enforces carried
+decision 4. Add one CSS rule (left rule, tinted background, matching `.lead` type scale).
 
-Nothing else in this template changes. Scorecard untouched.
+Note the headline can only speak in implementation terms in v1: "Of 90 user-facing features, 22 are
+demo-only." It cannot say which *value* is exposed, because the review does not assign value. That
+sentence gets sharper in phase 2.
 
-## 6. `templates/feature-coverage-report.html` — new
+---
 
-Same self-contained inline-CSS pattern and the founder report's **voice** (this is a business
-document, not a technical one). Print-friendly.
+## 6. Feature grain and id stability — the load-bearing rule
 
-| # | Section | Content |
-|---|---|---|
-| 1 | Masthead | `{{repoName}} — Feature Coverage`, sub: "What the code backs · sales & GTM" |
-| 2 | Stamp | Commit, review date, `{{meta.valueRepository.path}}`, `asOf`, reviewer |
-| 3 | Headline | `{{valueCoverage.headline}}` + `{{valueCoverage.denominator}}` |
-| 4 | By category | Category · catalogued · working · partial · demo-only · absent · **speaks to**. Omit if `byCategory` absent. |
-| 5 | By value code | Same counts per taxonomy code, with `meaning` and `businessMeaning` |
-| 6 | Demo-only detail | `features[]` filtered to `ui-only`/`absent`, grouped by category: id, name, value code, evidence. The section a founder acts on. |
-| 7 | Uncatalogued capabilities | `uncataloguedCapabilities[]` — working code nobody is selling |
-| 8 | Questions for your developers | `developerQuestions[]`, generated not authored |
-| 9 | Methodology footer | Denominator restated, `methodology.limitations`, inventory path and date |
+This is the one problem the inversion creates rather than removes, and the whole output's
+diffability rests on it. New `SKILL.md` section.
 
-Sort rule: sections 4 and 5 order by demo-only count descending, so the worst exposure reads first.
+**Grain.** One row per distinct thing a user can do that could plausibly appear on a pricing page or
+in a demo. Derive it by enumerating routes and screens from the code's own structure, then the
+distinct user actions within each. Two calibration rules:
 
-## 7. `templates/feature-coverage.csv` — new
+- A navigation affordance is not a feature unless it is the only entry point to a capability.
+- A CRUD set on one entity is one feature, not four, unless the states are separately sold
+  (e.g. approval workflow ≠ record creation).
 
-Header contract. Grain is **one row per catalogued feature** — the grain sales ops can pivot, which
-is why no summary CSV is needed.
+State the grain rule version in `meta.featureInventory.grainRuleVersion` and bump it whenever this
+section changes.
 
-```csv
-feature_id,feature_name,module,category,value_code,state,capability,code_locations,evidence,confidence,speaks_to
-```
+**Id stability.**
 
-- Direct projection of `valueCoverage.features[]`, joined to `categories[].speaksTo` on `category`.
-- UTF-8, RFC 4180 quoting, `;`-joined multi-values inside a quoted cell.
-- Row order matches `features[]` (source-inventory id order) so two versions diff cleanly.
+- Ids are minted once and are append-only. Never renumber, never reuse a retired id.
+- On re-review, match each candidate feature against the prior `featureInventory[]` by name, parent
+  capability, and code location — **in that order of precedence** — before minting a new id. A
+  renamed feature keeps its id. A feature that moved files keeps its id.
+- A feature no longer present in the code stays in the inventory with `state: "removed"`. Do not
+  delete rows.
+- `idHighWater` never decreases.
 
-## 8. Doc sync
+**Delta honesty.** Granularity drift between two reviews produces fake churn — a feature "split into
+three" is a reviewer artifact, not a product change. If `grainRuleVersion` differs from the prior
+review, say so in `deltas.summary` and do not report per-feature churn for that cycle. This is the
+same discipline `rubric.md` already applies to score bands.
 
-- `CONTRIBUTING.md` → *Add reuse profiles*: add feature coverage to the "Existing hooks" list.
-- `CONTRIBUTING.md` → *Keep things in sync*: name the new coupling (taxonomy in `findings.json` ↔
-  three templates ↔ CSV header).
-- `README.md`: add the two new outputs wherever it lists what the skill emits.
+## 7. Doc sync
 
-## 9. Gating — behavior when no inventory exists
+- `CONTRIBUTING.md` → *Add reuse profiles*: add feature inventory to "Existing hooks".
+- `CONTRIBUTING.md` → *Keep things in sync*: name the new coupling (`featureInventory[]` ↔ CSV header
+  ↔ `capabilityMap[].featureIds` ↔ the grain rule).
+- `README.md`: add the CSV wherever outputs are listed, and state plainly that the skill does not
+  assign business value.
 
-With `meta.valueRepository` absent: no coverage files written, coverage columns deleted from the
-technical report, founder callout block deleted, no severity escalation (`severityBasis: "stage"`),
-`valueCoverage` omitted. **Output is byte-comparable to 2.1.0.** This is the acceptance test for the
-change.
+## 8. Gating
+
+`featureInventory` absent → no CSV, inventory column deleted from the technical report, founder
+callout deleted, `meta.featureInventory` omitted. **Output is byte-comparable to 2.1.0.** That is the
+acceptance test.
 
 ---
 
 ## Open questions for red-line
 
-**Q1 — Is `TRUST` revenue-adjacent?** This sets how much escalates. `REV-ACCEL` (3) + `REV-GROWTH`
-(1) alone is 4 of 94 features, so value weighting would almost never fire. Adding `TRUST` (5) makes
-it 9 of 94. I lean yes: `TRUST` is the retention and close mechanism, and F064 (escrow explainer) and
-F062 (verified profile) are exactly the features a skeptical buyer tests. But it is your call, and
-it should be recorded in `methodology.approach` either way.
+**Q1 — Is the inventory opt-in or always-on?** Always-on makes it a dependable artifact and every
+review comparable, at the cost of real work on every run for repos where nobody wants it. Opt-in
+risks an id space that only advances on the runs someone remembered to ask. I lean **always-on when
+a prior review already has an inventory, opt-in otherwise** — once the id space exists, abandoning it
+is what breaks.
 
-**Q2 — `asOf` for the Techifuze inventory.** All three files have an mtime of 2026-07-29 because
-they were just added, and the `.md` states no date. The spec forbids inferring from mtime. Options:
-ask at review time, or add a date line to the inventory document itself. The second is better and
-costs one line in a document you control.
+**Q2 — Id prefix.** `F001` collides with the existing Techifuze document's ids, which is either
+convenient or actively confusing depending on Q3. Alternative: `FI-001`. Cheap to decide now,
+annoying later, because the ids are append-only forever.
 
-**Q3 — Does the `.docx` get parsed?** `categories[]` and `speaksTo` only exist in the category guide
-`.docx`. Parsing it is real work for one table and one column. Alternative: keep the eight categories
-and archetypes in a small sidecar `.md`/`.yml` in `documents/`, hand-maintained, and have the skill
-read that. Cheaper and more portable, at the cost of a second thing to keep current.
+**Q3 — What happens to the existing 94-feature document?** Three options, and this is the one I'd
+most like your read on:
 
-**Q4 — `uncatalogued` as a separate boolean.** I split it from `implementationState` because it
-answers a different question. The alternative is a fifth enum value, which is simpler to render but
-conflates two axes. Low stakes, but it is a schema shape you will live with.
+- **Discard.** The code-derived inventory supersedes it. Cleanest, throws away the value tagging and
+  the eight-category structure, which are real work and genuinely outside the skill's competence.
+- **Seed.** Hand-map the 94 existing rows onto the new inventory once, so the value tags and
+  categories carry forward and rev ops starts from a filled sheet rather than a blank one. Best
+  outcome, one-time manual cost.
+- **Compare.** Run the new inventory against the 94 as a one-off analysis to find what the screenshot
+  crawl missed and what it recorded that has no code behind it. Not a skill feature — a one-time
+  document, and a good validation of whether the derived inventory is actually better.
 
-**Q5 — Does `features[]` belong under `valueCoverage`, or as its own top-level array?** Under
-`valueCoverage` keeps one coherent object. Top-level (`featureCoverage[]`) reads better if it grows
-independently. I chose nesting; reversing it later is a breaking schema change, so it is worth
-deciding now.
+Seed and compare are the same exercise done to different depth. I'd do **compare, then seed**.
+
+**Q4 — Does `plainLanguage` on the inventory duplicate `capabilityMap[].plainLanguage`?** At 90 rows
+against 17, the inventory prose is finer but will restate its parent a lot. Acceptable duplication,
+or should inventory rows carry only a name and let the parent capability supply the description? I
+lean keep it: the CSV has to stand alone when rev ops opens it away from the reports.
+
+## Phase 2, explicitly out of scope
+
+Reading an enriched inventory back in — value codes, sales categories, archetypes — and rendering the
+coverage report the first draft described. Much cheaper once this ships, because the ids and the grain
+are already the skill's own and there is nothing to match. Revisit after one enriched cycle exists,
+not before; the shape of the enrichment rev ops actually produces should drive that schema, rather
+than being guessed at now.
 
 ## Not in scope
 
-- Backfilling the two prior reviews (`2026-07-09_2787804`, `2026-07-13_1ee4fbd`) with coverage data.
-  They stay as-is; the first coverage report is a `new` baseline with no deltas.
-- Any change to the seven scorecard dimensions or the score→traffic-light mapping.
-- Reconciling the inventory's own accuracy. The skill takes the inventory as given and reports
-  against it. If a catalogued feature is described wrongly, that is a finding, not a correction.
+- Backfilling the two prior reviews with an inventory. The first one is a `new` baseline, no deltas.
+- Any change to `rubric.md`, the seven scorecard dimensions, or the score→traffic-light mapping.
+- Assigning business value, in any form. That is the point of the rescope.

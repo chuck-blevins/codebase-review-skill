@@ -1,0 +1,93 @@
+{
+  "oobo_version": "0.1.14",
+  "commit_hash": "4cbef34d229aff59ece73b5f33cde24fbfb78417",
+  "branch": "readme-nondestructive-note",
+  "author": "chuck-blevins <chuck@chuckblevins.com>",
+  "author_type": "agent",
+  "contributors": [
+    {
+      "name": "chuck-blevins <chuck@chuckblevins.com>",
+      "role": "human"
+    },
+    {
+      "name": "claude",
+      "role": "agent"
+    }
+  ],
+  "committed_at": 1785373841,
+  "message": "docs(readme): document non-destructive output behavior",
+  "files_changed": [
+    "README.md"
+  ],
+  "added": 9,
+  "deleted": 0,
+  "file_changes": [
+    {
+      "path": "README.md",
+      "added": 9,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "human",
+          "ranges": [
+            {
+              "start": 31,
+              "end": 31
+            },
+            {
+              "start": 34,
+              "end": 34
+            },
+            {
+              "start": 38,
+              "end": 38
+            },
+            {
+              "start": 43,
+              "end": 43
+            },
+            {
+              "start": 45,
+              "end": 63
+            },
+            {
+              "start": 78,
+              "end": 78
+            },
+            {
+              "start": 86,
+              "end": 86
+            },
+            {
+              "start": 99,
+              "end": 100
+            },
+            {
+              "start": 105,
+              "end": 113
+            },
+            {
+              "start": 119,
+              "end": 119
+            },
+            {
+              "start": 132,
+              "end": 135
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ai_added": 9,
+  "ai_deleted": 0,
+  "human_added": 0,
+  "human_deleted": 0,
+  "ai_percentage": 100.0,
+  "session_ids": [
+    "ebef860b-740d-4ff6-b65f-3f22517ebd68"
+  ],
+  "transparency_mode": "off"
+}

@@ -1,0 +1,119 @@
+{
+  "_note": "SYNTHETIC EXAMPLE. 'Larkspur' is a fictional team-wiki SaaS invented to demonstrate the output shape. No real product, code, or company. Trimmed for brevity (a real run has more findings and diagrams).",
+  "meta": {
+    "repoName": "Larkspur",
+    "commitSha": "b3f9c1a7e2d4088c6f1a9b2c3d4e5f6a7b8c9d0e",
+    "commitShaShort": "b3f9c1a",
+    "gitRef": "main",
+    "reviewDate": "2026-01-15",
+    "reviewer": "Example Reviewer",
+    "skillVersion": "2.1.0",
+    "scannedFileCount": 84,
+    "linesOfCode": 9120,
+    "primaryLanguages": ["TypeScript", "React / TSX"],
+    "scopeIncluded": ["All source under src/**", "package.json, config", "CI workflow"],
+    "scopeExcluded": ["Runtime behaviour (app not executed)", "Accessibility and performance", "Third-party service internals"],
+    "overallConfidence": "high"
+  },
+  "scorecard": [
+    { "dimension": "Overall health", "rating": "amber", "score": 3.2, "trend": "new", "businessMeaning": "Solid small app with a clear structure. A few gaps to close before it can scale to a paying team." },
+    { "dimension": "Security", "rating": "amber", "score": 3.4, "trend": "new", "businessMeaning": "Auth is real, but one endpoint trusts client input. Fixable in a day." },
+    { "dimension": "Maintainability", "rating": "green", "score": 4.1, "trend": "new", "businessMeaning": "Clean and consistent. A new engineer could get productive quickly." },
+    { "dimension": "Test coverage", "rating": "red", "score": 1.5, "trend": "new", "businessMeaning": "Only the happy paths are tested. Edge cases can regress unnoticed." }
+  ],
+  "executiveSummary": "Larkspur is a team-wiki SaaS: shared pages, comments, and role-based access. The codebase is small and well organized, with real authentication and a clean data layer. Two things need attention before it carries paying teams: a page-permission check that runs only in the browser, and thin automated test coverage. Neither is alarming at this size, and both are quick to address.",
+  "deltas": null,
+  "capabilityMap": [
+    { "capability": "Pages & editing", "plainLanguage": "Create, edit, and organize wiki pages with a rich-text editor and version history.", "codeLocations": ["src/features/pages/", "src/lib/pages.ts"], "confidence": "high", "basis": "documented" },
+    { "capability": "Comments", "plainLanguage": "Threaded comments on any page, with mentions and resolve/reopen.", "codeLocations": ["src/features/comments/", "src/lib/comments.ts"], "confidence": "high", "basis": "documented" },
+    { "capability": "Workspace & roles", "plainLanguage": "Team workspaces with Editor and Admin roles; admins manage members and settings.", "codeLocations": ["src/features/workspace/", "src/lib/roles.ts"], "confidence": "high", "basis": "documented" }
+  ],
+  "roleMatrix": [
+    { "role": "Editor", "allowedActions": ["Create/edit pages", "Comment", "View workspace"], "dataScope": "All pages in workspaces they belong to." },
+    { "role": "Admin", "allowedActions": ["Everything an Editor can do", "Manage members and roles", "Change workspace settings", "Delete pages"], "dataScope": "All data in workspaces they administer." }
+  ],
+  "architecture": {
+    "plainLanguage": "Larkspur is a standard web app: a React front end, a small API, and a Postgres database. Pages and comments are stored in the database; access is decided by a member's role in each workspace.",
+    "technicalSummary": "Next.js App Router front end with a thin API layer (route handlers) over Postgres via Prisma. Auth uses signed session cookies. Domain logic lives in src/lib/* as typed modules; features are organized under src/features/*.",
+    "techStack": [
+      { "layer": "Framework", "tech": "Next.js (App Router), React", "role": "Front end and API route handlers" },
+      { "layer": "Data", "tech": "Postgres via Prisma", "role": "Persistent storage for pages, comments, members" },
+      { "layer": "Auth", "tech": "Signed session cookies", "role": "Authentication and workspace-role checks" }
+    ],
+    "diagrams": [
+      { "title": "System context", "description": "The browser talks to Next.js route handlers, which read/write Postgres through Prisma.", "mermaid": "graph TD\n  U[Browser] --> APP[Next.js App Router]\n  APP --> API[Route handlers /api/*]\n  API --> ORM[Prisma]\n  ORM --> DB[(Postgres)]\n  APP --> LIB[src/lib/* - domain logic]" }
+    ],
+    "crossCutting": [
+      { "capability": "Authorization", "detail": "Role checks derive from workspace membership (roles.ts). Mostly enforced server-side; see finding SEC-01 for the exception." },
+      { "capability": "Versioning", "detail": "Page edits are stored as immutable revisions (pages.ts), enabling history and rollback." }
+    ],
+    "featureMatrix": [
+      { "feature": "Pages", "role1": "Create / edit", "role2": "Create / edit / delete" },
+      { "feature": "Comments", "role1": "Add / resolve own", "role2": "Add / resolve any" },
+      { "feature": "Members", "role1": "—", "role2": "Invite / remove / set role" }
+    ],
+    "components": ["src/features/pages — editor and page tree", "src/features/comments — comment threads", "src/features/workspace — members and settings", "src/components/ui — shared primitives"],
+    "externalDependencies": ["Next.js / React", "Prisma + Postgres", "an email provider for invites"]
+  },
+  "dataModel": {
+    "plainLanguage": "Four core records: a Workspace has Members (each with a role) and Pages; each Page has Revisions and Comments.",
+    "diagram": "erDiagram\n  WORKSPACE ||--o{ MEMBER : has\n  WORKSPACE ||--o{ PAGE : contains\n  PAGE ||--o{ REVISION : versions\n  PAGE ||--o{ COMMENT : has\n  MEMBER ||--o{ COMMENT : writes",
+    "entities": [
+      { "name": "Workspace", "description": "A team's container for pages and members.", "storage": "Postgres (Prisma model Workspace)" },
+      { "name": "Member", "description": "A user's membership in a workspace, with a role.", "storage": "Postgres (Member)" },
+      { "name": "Page / Revision", "description": "A wiki page and its immutable edit history.", "storage": "Postgres (Page, Revision)" },
+      { "name": "Comment", "description": "A threaded comment on a page.", "storage": "Postgres (Comment)" }
+    ]
+  },
+  "workflows": [
+    { "name": "Edit a page", "plainLanguage": "How an editor changes a page and how history is preserved.", "steps": ["Open a page and click edit.", "Make changes in the rich-text editor.", "Save — a new immutable revision is written.", "Prior versions remain available under history."], "codeLocations": ["src/features/pages/", "src/lib/pages.ts"] }
+  ],
+  "aiProvenance": {
+    "summary": "Minimal signals. Consistent patterns and no unused dependencies. One duplicated validation helper across two features is the only notable drift.",
+    "signals": [
+      { "signal": "duplicated-block", "detail": "A near-identical slug-validation helper appears in two features; worth extracting to src/lib.", "evidence": [ { "file": "src/features/pages/validate.ts", "lines": "8-24", "note": "duplicate of comments/validate.ts" } ] }
+    ]
+  },
+  "findings": [
+    {
+      "id": "SEC-01", "category": "security", "title": "Page-permission check runs only in the browser",
+      "businessImpact": "A member could reach or edit a page they shouldn't by calling the API directly, because the permission check happens in the UI rather than on the server. Low blast radius today, but it undermines the role system paying teams will rely on.",
+      "technicalDetail": "The page editor hides controls based on role, but the PATCH /api/pages/[id] handler does not re-check workspace role before writing.",
+      "evidence": [ { "file": "src/app/api/pages/[id]/route.ts", "lines": "22-40", "note": "handler writes without a server-side role check" }, { "file": "src/features/pages/Editor.tsx", "lines": "51-58", "note": "role check is client-side only" } ],
+      "severity": "high", "confidence": "high", "basis": "documented",
+      "recommendation": "Add a server-side role assertion in the route handler using roles.ts before any write.", "effort": "quick-win"
+    },
+    {
+      "id": "QUAL-01", "category": "quality", "title": "Automated tests cover happy paths only",
+      "businessImpact": "Edge cases (empty pages, permission failures, concurrent edits) can regress without any test catching them, which slows safe iteration as the team grows.",
+      "technicalDetail": "The suite exercises create/read for pages and comments but has no tests for authorization, revision conflicts, or validation failures.",
+      "evidence": [ { "file": "src/lib/pages.test.ts", "lines": "1-40", "note": "only create/read paths covered" } ],
+      "severity": "medium", "confidence": "high", "basis": "documented",
+      "recommendation": "Add tests for authorization and revision-conflict handling first; these are the highest-risk untested paths.", "effort": "moderate"
+    },
+    {
+      "id": "SEC-02", "category": "security", "title": "Secrets and sessions handled correctly (positive)",
+      "businessImpact": "Good news: credentials are kept in environment config and sessions are signed cookies, so the security fundamentals are sound.",
+      "technicalDetail": "No secrets are committed; session cookies are signed and httpOnly; database access is parameterized via Prisma.",
+      "evidence": [ { "file": ".env.example", "lines": "1-6", "note": "documents required vars; no real secrets tracked" } ],
+      "severity": "info", "confidence": "high", "basis": "documented",
+      "recommendation": "Maintain these practices.", "effort": "quick-win"
+    }
+  ],
+  "recommendations": {
+    "quickWins": [
+      { "title": "Add the server-side page-permission check", "why": "Closes the one real access-control gap; about a day of work.", "effort": "quick-win", "relatedFindingIds": ["SEC-01"] }
+    ],
+    "strategic": [
+      { "title": "Grow the test suite around authorization and conflicts", "why": "Protects the riskiest logic as the product and team scale.", "effort": "moderate", "relatedFindingIds": ["QUAL-01"] }
+    ],
+    "risky": []
+  },
+  "auditMappings": [
+    { "framework": "OWASP-Top-10", "control": "A01: Broken Access Control", "status": "gap", "relatedFindingIds": ["SEC-01"] }
+  ],
+  "methodology": {
+    "approach": "Static, evidence-cited review at commit b3f9c1a against the fixed rubric. Synthetic example for demonstration.",
+    "limitations": "Illustrative sample only. The app was not executed; runtime, accessibility, and performance were not assessed."
+  }
+}

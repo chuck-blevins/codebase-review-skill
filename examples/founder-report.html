@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!-- SYNTHETIC EXAMPLE — fictional "Larkspur" app. Rendered from examples/findings.json. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Larkspur — Codebase Review (Founder Summary) — EXAMPLE</title>
+<style>
+  :root{--green:#16a34a;--amber:#d97706;--red:#dc2626;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--bg:#fff;--card:#f9fafb}
+  *{box-sizing:border-box}
+  body{font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:48px 24px}
+  .demo{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;font-size:13px;margin-bottom:20px}
+  header.masthead{border-bottom:3px solid var(--ink);padding-bottom:16px}
+  h1{font-size:28px;margin:0 0 4px} .sub{color:var(--muted);font-size:14px}
+  .stamp{font-size:13px;color:var(--muted);margin:12px 0 32px;display:flex;flex-wrap:wrap;gap:6px 20px}
+  h2{font-size:20px;margin:40px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 6px}
+  .lead{font-size:18px;line-height:1.55;background:var(--card);border-left:4px solid var(--ink);padding:16px 20px;border-radius:0 8px 8px 0}
+  .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+  .tile{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
+  .tile .dim{font-weight:600;display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .dot{width:14px;height:14px;border-radius:50%;flex:none}
+  .dot.green{background:var(--green)} .dot.amber{background:var(--amber)} .dot.red{background:var(--red)}
+  .tile .mean{font-size:14px;color:var(--muted);margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .finding{border:1px solid var(--line);border-left-width:5px;border-radius:8px;padding:14px 18px;margin:12px 0}
+  .finding.high{border-left-color:var(--red)} .finding.medium{border-left-color:var(--amber)}
+  .finding h4{margin:0 0 4px;font-size:16px}
+  .sev{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .askbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:4px 20px 12px;margin:12px 0}
+  .askbox h3{margin:12px 0 4px;font-size:14px;color:#1e40af}
+  footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="demo"><strong>Example output.</strong> "Larkspur" is a fictional app used to show the report shape. Not a real product or review.</div>
+
+  <header class="masthead"><h1>Larkspur</h1><div class="sub">Codebase Review — Founder &amp; Board Summary</div></header>
+  <div class="stamp">
+    <span><strong>Reviewed:</strong> 2026-01-15</span>
+    <span><strong>Version:</strong> main @ b3f9c1a</span>
+    <span><strong>Confidence:</strong> High (static review)</span>
+  </div>
+
+  <h2>At a glance</h2>
+  <p class="lead">Larkspur is a team-wiki SaaS: shared pages, comments, and role-based access. The codebase is small and well organized, with real authentication and a clean data layer. Two things need attention before it carries paying teams: a page-permission check that runs only in the browser, and thin automated test coverage. Neither is alarming at this size, and both are quick to address.</p>
+
+  <div class="scorecard">
+    <div class="tile"><div class="dim"><span>Overall health</span><span class="dot amber"></span></div><div class="mean">Solid small app with a clear structure. A few gaps to close before it can scale to a paying team.</div></div>
+    <div class="tile"><div class="dim"><span>Security</span><span class="dot amber"></span></div><div class="mean">Auth is real, but one endpoint trusts client input. Fixable in a day.</div></div>
+    <div class="tile"><div class="dim"><span>Maintainability</span><span class="dot green"></span></div><div class="mean">Clean and consistent. A new engineer could get productive quickly.</div></div>
+    <div class="tile"><div class="dim"><span>Test coverage</span><span class="dot red"></span></div><div class="mean">Only the happy paths are tested. Edge cases can regress unnoticed.</div></div>
+  </div>
+
+  <h2>What the system does</h2>
+  <p>Larkspur is a standard web app: a React front end, a small API, and a database. Pages and comments are stored in the database; what a member can do is decided by their role in each workspace.</p>
+  <table>
+    <thead><tr><th>Capability</th><th>In plain terms</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Pages &amp; editing</strong></td><td>Create, edit, and organize wiki pages with version history.</td></tr>
+      <tr><td><strong>Comments</strong></td><td>Threaded comments on any page, with mentions and resolve/reopen.</td></tr>
+      <tr><td><strong>Workspace &amp; roles</strong></td><td>Team workspaces with Editor and Admin roles; admins manage members and settings.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Top things to know</h2>
+  <div class="finding high"><div class="sev">High · security</div><h4>A page-permission check runs only in the browser</h4><div>What this means for you: a member could reach or edit a page they shouldn't by calling the API directly, because the permission check happens in the interface rather than on the server. Low impact today, but it undermines the role system paying teams will rely on. About a day to fix.</div></div>
+  <div class="finding medium"><div class="sev">Medium · quality</div><h4>Tests cover the happy paths only</h4><div>What this means for you: edge cases like permission failures and simultaneous edits can break without any test catching them, which slows safe iteration as the team grows.</div></div>
+
+  <h2>What we recommend</h2>
+  <h3>Quick wins</h3>
+  <ul><li><strong>Add the server-side page-permission check.</strong> Closes the one real access-control gap; about a day of work.</li></ul>
+  <h3>Strategic</h3>
+  <ul><li><strong>Grow the test suite around authorization and simultaneous edits.</strong> Protects the riskiest logic as the product scales.</li></ul>
+
+  <div class="askbox">
+    <h3>Questions worth asking your developers</h3>
+    <ul>
+      <li>"Can a member reach a page through the API that the interface would hide from them? When can we add the server-side check?"</li>
+      <li>"Which parts of the code have no tests today, and which would you cover first?"</li>
+    </ul>
+  </div>
+
+  <footer><p>Plain-language companion to the technical report (<code>technical-report.html</code>), which cites the exact code behind every finding. Static review: the app was read, not run.</p></footer>
+</div>
+</body>
+</html>

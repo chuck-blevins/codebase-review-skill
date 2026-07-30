@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!--
+  FOUNDER / BOARD REPORT TEMPLATE
+  Audience: non-engineering founders, executives, board.
+  Renders from findings.json. Rules:
+    - VOICE: concise, experienced product/SaaS leader (see SKILL.md "Voice"). Short declarative
+      sentences; no "it's not X, it's Y" antithesis; no metaphors; sparing em-dashes.
+    - Plain language first. No jargon without a glossary entry.
+    - Lead with the scorecard and the deltas. A reader gets the picture in 15 seconds.
+    - Every finding shows "What this means for you" (findings[].businessImpact), not technicalDetail.
+    - Technical detail is deliberately OMITTED here — it lives in the technical report.
+    - Self-contained: inline all CSS. Print-friendly (this gets exported to PDF for board decks).
+  Replace every {{TOKEN}} and repeat the marked blocks per array item. Delete the "Since last
+  review" section entirely if findings.deltas is null.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{repoName}} — Codebase Review (Founder Summary)</title>
+<style>
+  :root{
+    --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --green-bg:#dcfce7; --amber-bg:#fef3c7; --red-bg:#fee2e2;
+    --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#ffffff; --card:#f9fafb;
+  }
+  *{box-sizing:border-box}
+  body{font:16px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);margin:0}
+  .wrap{max-width:900px;margin:0 auto;padding:48px 24px}
+  header.masthead{border-bottom:3px solid var(--ink);padding-bottom:16px;margin-bottom:8px}
+  h1{font-size:28px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px}
+  .stamp{font-size:13px;color:var(--muted);margin:12px 0 32px;display:flex;flex-wrap:wrap;gap:6px 20px}
+  h2{font-size:20px;margin:40px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .lead{font-size:18px;line-height:1.55;background:var(--card);border-left:4px solid var(--ink);padding:16px 20px;border-radius:0 8px 8px 0}
+  /* Scorecard */
+  .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+  .tile{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
+  .tile .dim{font-weight:600;display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .dot{width:14px;height:14px;border-radius:50%;flex:none}
+  .dot.green{background:var(--green)} .dot.amber{background:var(--amber)} .dot.red{background:var(--red)}
+  .tile .mean{font-size:14px;color:var(--muted);margin-top:6px}
+  .trend{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .trend.improved{color:var(--green)} .trend.declined{color:var(--red)} .trend.unchanged{color:var(--muted)} .trend.new{color:var(--amber)}
+  /* Deltas */
+  .deltas{border:1px solid var(--line);border-radius:10px;padding:4px 20px 12px;background:#fffdf5}
+  .deltas ul{margin:6px 0 12px;padding-left:22px} .deltas li{margin:3px 0}
+  .chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;margin-right:6px}
+  .chip.resolved{background:var(--green-bg);color:var(--green)}
+  .chip.new{background:var(--red-bg);color:var(--red)}
+  .chip.changed{background:var(--amber-bg);color:var(--amber)}
+  /* Findings */
+  .finding{border:1px solid var(--line);border-left-width:5px;border-radius:8px;padding:14px 18px;margin:12px 0}
+  .finding.critical,.finding.high{border-left-color:var(--red)}
+  .finding.medium{border-left-color:var(--amber)}
+  .finding.low,.finding.info{border-left-color:var(--muted)}
+  .finding h3{margin:0 0 4px;font-size:16px}
+  .sev{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .impact{margin-top:6px}
+  /* Capability map */
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  /* Questions box */
+  .askbox{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 20px;margin:12px 0}
+  .askbox h3{margin:8px 0 4px;font-size:14px;color:#1e40af}
+  .glossary dt{font-weight:600;margin-top:8px} .glossary dd{margin:0 0 4px;color:var(--muted);font-size:14px}
+  footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  @media print{
+    body{font-size:12px} .wrap{padding:0} h2{page-break-after:avoid} .finding,.tile,.deltas{page-break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>{{repoName}}</h1>
+    <div class="sub">Codebase Review — Founder &amp; Board Summary</div>
+  </header>
+  <div class="stamp">
+    <span><strong>Reviewed:</strong> {{reviewDate}}</span>
+    <span><strong>Version:</strong> {{gitRef}} @ {{commitShaShort}}</span>
+    <span><strong>Confidence:</strong> {{overallConfidence}}</span>
+    <span><strong>Reviewer:</strong> {{reviewer}}</span>
+  </div>
+
+  <!-- ============ AT A GLANCE ============ -->
+  <h2>At a glance</h2>
+  <p class="lead">{{executiveSummary}}</p>
+
+  <div class="scorecard">
+    <!-- REPEAT per scorecard[] -->
+    <div class="tile">
+      <div class="dim"><span>{{dimension}}</span><span class="dot {{rating}}"></span></div>
+      <div class="mean">{{businessMeaning}}</div>
+      <div class="trend {{trend}}">{{trend}}</div>
+    </div>
+    <!-- /REPEAT -->
+  </div>
+
+  <!-- ============ SINCE LAST REVIEW (delete whole block if deltas is null) ============ -->
+  <h2>Since last review ({{deltas.previousReviewDate}})</h2>
+  <div class="deltas">
+    <p>{{deltas.summary}}</p>
+    <div><span class="chip resolved">Resolved</span></div>
+    <ul><!-- REPEAT deltas.resolved[] --><li>{{item}}</li><!-- /REPEAT --></ul>
+    <div><span class="chip new">New</span></div>
+    <ul><!-- REPEAT deltas.new[] --><li>{{item}}</li><!-- /REPEAT --></ul>
+    <div><span class="chip changed">Changed</span></div>
+    <ul><!-- REPEAT deltas.changed[] --><li>{{item}}</li><!-- /REPEAT --></ul>
+  </div>
+
+  <!-- ============ WHAT THE SYSTEM DOES ============ -->
+  <h2>What the system does</h2>
+  <p>{{architecture.plainLanguage}}</p>
+  <table>
+    <thead><tr><th>Capability</th><th>In plain terms</th></tr></thead>
+    <tbody>
+      <!-- REPEAT capabilityMap[] -->
+      <tr><td><strong>{{capability}}</strong></td><td>{{plainLanguage}}</td></tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <!-- ============ TOP THINGS TO KNOW ============ -->
+  <h2>Top things to know</h2>
+  <!-- Show only critical/high/medium findings here, most severe first. -->
+  <!-- REPEAT findings[] (filtered & sorted) -->
+  <div class="finding {{severity}}">
+    <div class="sev">{{severity}} · {{category}}</div>
+    <h3>{{title}}</h3>
+    <div class="impact"><strong>What this means for you:</strong> {{businessImpact}}</div>
+  </div>
+  <!-- /REPEAT -->
+
+  <!-- ============ RECOMMENDATIONS ============ -->
+  <h2>What we recommend</h2>
+  <h3>Quick wins (low effort, high value)</h3>
+  <ul><!-- REPEAT recommendations.quickWins[] --><li><strong>{{title}}.</strong> {{why}}</li><!-- /REPEAT --></ul>
+  <h3>Strategic (worth planning)</h3>
+  <ul><!-- REPEAT recommendations.strategic[] --><li><strong>{{title}}.</strong> {{why}}</li><!-- /REPEAT --></ul>
+
+  <!-- ============ QUESTIONS TO ASK YOUR TEAM ============ -->
+  <div class="askbox">
+    <h3>Questions worth asking your developers</h3>
+    <!-- Generate 3-6 sharp, non-technical questions grounded in the findings above. -->
+    <ul><!-- REPEAT --><li>{{question}}</li><!-- /REPEAT --></ul>
+  </div>
+
+  <!-- ============ GLOSSARY ============ -->
+  <h2>Glossary</h2>
+  <dl class="glossary">
+    <!-- REPEAT: define every non-obvious term used above. -->
+    <dt>{{term}}</dt><dd>{{definition}}</dd>
+    <!-- /REPEAT -->
+  </dl>
+
+  <footer>
+    <p>This summary is the plain-language companion to the full technical report
+       (<code>technical-report.html</code>), which cites the exact code behind every finding.
+       {{methodology.limitations}}</p>
+  </footer>
+
+</div>
+</body>
+</html>

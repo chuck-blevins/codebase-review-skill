@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+  TECHNICAL REPORT TEMPLATE
+  Audience: the development team, a technical auditor, a skeptical reviewer.
+  Renders from the SAME findings.json as the founder report. Rules:
+    - Every claim is verifiable. Each finding lists its evidence (file + lines).
+    - Full technicalDetail is shown. Confidence + basis (documented/inferred) are visible.
+    - Includes architecture + data-model diagrams, capability->code map, AI-provenance signals,
+      and an appendix of files scanned + methodology + limitations.
+    - Self-contained CSS. Mermaid via CDN <script> (fine for a locally-opened report); if the
+      diagram field is ASCII, drop it in a <pre> instead and omit the mermaid script.
+  Replace {{TOKEN}}s and repeat marked blocks per array item.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{repoName}} — Codebase Review (Technical)</title>
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--card:#f8fafc;--accent:#2563eb;
+        --red:#dc2626;--amber:#d97706;--green:#16a34a;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);margin:0}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 24px}
+  header.masthead{border-bottom:3px solid var(--ink);padding-bottom:14px}
+  h1{font-size:26px;margin:0} .sub{color:var(--muted);font-size:14px}
+  .stamp{font-size:13px;color:var(--muted);margin:12px 0 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 20px}
+  nav.toc{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 20px;margin:24px 0;font-size:14px;columns:2}
+  nav.toc a{color:var(--accent);text-decoration:none}
+  h2{font-size:20px;margin:36px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 6px}
+  code,.path{font-family:var(--mono);font-size:.88em;background:var(--card);padding:1px 5px;border-radius:4px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .diagram{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto}
+  pre{font-family:var(--mono);font-size:13px;overflow:auto}
+  /* Findings */
+  .finding{border:1px solid var(--line);border-radius:8px;margin:14px 0;overflow:hidden}
+  .finding>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;gap:10px;align-items:baseline;background:var(--card)}
+  .finding>summary::-webkit-details-marker{display:none}
+  .finding .body{padding:4px 16px 16px}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:20px;flex:none}
+  .sev-critical,.sev-high{background:#fee2e2;color:var(--red)}
+  .sev-medium{background:#fef3c7;color:var(--amber)}
+  .sev-low,.sev-info{background:#e2e8f0;color:var(--muted)}
+  .fid{font-family:var(--mono);color:var(--muted);font-size:13px}
+  .ftitle{font-weight:600}
+  .meta-row{font-size:12px;color:var(--muted);margin:6px 0}
+  .meta-row b{color:var(--ink)}
+  .evidence{margin-top:8px;font-size:13px}
+  .evidence li{margin:2px 0}
+  .basis-inferred{color:var(--amber);font-weight:600}
+  .basis-documented{color:var(--green);font-weight:600}
+  .limits{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:4px 18px}
+  footer{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>{{repoName}} — Codebase Review</h1>
+    <div class="sub">Technical report · evidence-cited</div>
+  </header>
+  <div class="stamp">
+    <span><b>Commit:</b> <code>{{commitSha}}</code> ({{gitRef}})</span>
+    <span><b>Reviewed:</b> {{reviewDate}}</span>
+    <span><b>Languages:</b> {{primaryLanguages}}</span>
+    <span><b>Files scanned:</b> {{scannedFileCount}} · ~{{linesOfCode}} LOC</span>
+    <span><b>Confidence:</b> {{overallConfidence}}</span>
+    <span><b>Reviewer:</b> {{reviewer}}</span>
+  </div>
+
+  <nav class="toc">
+    <a href="#summary">Executive summary</a> ·
+    <a href="#capabilities">Capability → code map</a> ·
+    <a href="#architecture">Architecture</a> ·
+    <a href="#data">Data model</a> ·
+    <a href="#roles">Roles &amp; permissions</a> ·
+    <a href="#workflows">Workflows</a> ·
+    <a href="#findings">Findings</a> ·
+    <a href="#ai">AI-provenance signals</a> ·
+    <a href="#recs">Recommendations</a> ·
+    <a href="#appendix">Methodology &amp; appendix</a>
+  </nav>
+
+  <h2 id="summary">Executive summary</h2>
+  <p>{{executiveSummary}}</p>
+
+  <h2 id="capabilities">Capability → code map</h2>
+  <p>Where each user-facing capability lives in the codebase.</p>
+  <table>
+    <thead><tr><th>Capability</th><th>Description</th><th>Code locations</th><th>Basis</th></tr></thead>
+    <tbody>
+      <!-- REPEAT capabilityMap[] -->
+      <tr>
+        <td><strong>{{capability}}</strong></td>
+        <td>{{plainLanguage}}</td>
+        <td><!-- REPEAT codeLocations[] --><code class="path">{{loc}}</code> <!-- /REPEAT --></td>
+        <td class="basis-{{basis}}">{{basis}} ({{confidence}})</td>
+      </tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <!-- ARCHITECTURE DEEP-DIVE. Aim for the depth of a standalone architecture report:
+       tech stack table, several complementary diagrams, cross-cutting concerns, feature x persona matrix.
+       Add a #crosscutting entry to the TOC. MERMAID: no ';' inside sequence messages; no node label
+       starting with '[/'; validate each diagram before shipping. -->
+  <h2 id="architecture">Architecture</h2>
+  <p>{{architecture.technicalSummary}}</p>
+
+  <h3>Technology stack</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Technology</th><th>Role</th></tr></thead>
+    <tbody>
+      <!-- REPEAT architecture.techStack[] -->
+      <tr><td><strong>{{layer}}</strong></td><td>{{tech}}</td><td>{{role}}</td></tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <!-- REPEAT architecture.diagrams[] — one <h3> + diagram per view (system context, layered, route map, lifecycle). If ASCII, swap <pre class="mermaid"> for a plain <pre>. -->
+  <h3>{{title}}</h3>
+  <p>{{description}}</p>
+  <div class="diagram"><pre class="mermaid">{{mermaid}}</pre></div>
+  <!-- /REPEAT -->
+
+  <h3 id="crosscutting">Cross-cutting capabilities</h3>
+  <p>Concerns that span personas and modules rather than living in a single feature folder.</p>
+  <table>
+    <thead><tr><th>Capability</th><th>How it works &amp; where it lives</th></tr></thead>
+    <tbody>
+      <!-- REPEAT architecture.crossCutting[] -->
+      <tr><td><strong>{{capability}}</strong></td><td>{{detail}}</td></tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <h3>Feature &times; role matrix</h3>
+  <table>
+    <!-- Adapt the columns to THIS system's actual roles — one <th> per role key in
+         architecture.featureMatrix[] (e.g. buyer/seller/admin, reader/author/editor, tenant/operator).
+         The two-role and four-role cases are equally fine; do not force a fixed persona set. -->
+    <thead><tr><th>Feature</th><th>{{Role 1}}</th><th>{{Role 2}}</th><th>{{Role N}}</th></tr></thead>
+    <tbody>
+      <!-- REPEAT architecture.featureMatrix[] — one cell per role column, in the same order as the header -->
+      <tr><td><strong>{{feature}}</strong></td><td>{{role1}}</td><td>{{role2}}</td><td>{{roleN}}</td></tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <p><strong>External dependencies:</strong> {{architecture.externalDependencies}}</p>
+
+  <h2 id="data">Data model</h2>
+  <p>{{dataModel.plainLanguage}}</p>
+  <div class="diagram"><pre class="mermaid">{{dataModel.diagram}}</pre></div>
+  <table>
+    <thead><tr><th>Entity</th><th>Description</th><th>Storage</th></tr></thead>
+    <tbody><!-- REPEAT dataModel.entities[] --><tr><td><strong>{{name}}</strong></td><td>{{description}}</td><td><code>{{storage}}</code></td></tr><!-- /REPEAT --></tbody>
+  </table>
+
+  <h2 id="roles">Roles &amp; permissions</h2>
+  <table>
+    <thead><tr><th>Role</th><th>Allowed actions</th><th>Data scope</th></tr></thead>
+    <tbody><!-- REPEAT roleMatrix[] --><tr><td><strong>{{role}}</strong></td><td>{{allowedActions}}</td><td>{{dataScope}}</td></tr><!-- /REPEAT --></tbody>
+  </table>
+
+  <h2 id="workflows">Workflows</h2>
+  <!-- REPEAT workflows[] -->
+  <h3>{{name}}</h3>
+  <p>{{plainLanguage}}</p>
+  <ol><!-- REPEAT steps[] --><li>{{step}}</li><!-- /REPEAT --></ol>
+  <p class="meta-row"><b>Code:</b> <!-- REPEAT codeLocations[] --><code class="path">{{loc}}</code> <!-- /REPEAT --></p>
+  <!-- /REPEAT -->
+
+  <h2 id="findings">Findings</h2>
+  <!-- REPEAT findings[] — most severe first. Open critical/high by default (add `open` attribute). -->
+  <details class="finding">
+    <summary>
+      <span class="badge sev-{{severity}}">{{severity}}</span>
+      <span class="fid">{{id}}</span>
+      <span class="ftitle">{{title}}</span>
+    </summary>
+    <div class="body">
+      <div class="meta-row"><b>Category:</b> {{category}} · <b>Confidence:</b> {{confidence}} ·
+        <b>Basis:</b> <span class="basis-{{basis}}">{{basis}}</span> · <b>Effort:</b> {{effort}}</div>
+      <p><strong>Business impact:</strong> {{businessImpact}}</p>
+      <p><strong>Technical detail:</strong> {{technicalDetail}}</p>
+      <p><strong>Recommendation:</strong> {{recommendation}}</p>
+      <div class="evidence"><strong>Evidence:</strong>
+        <ul><!-- REPEAT evidence[] --><li><code class="path">{{file}}:{{lines}}</code> — {{note}}</li><!-- /REPEAT --></ul>
+      </div>
+    </div>
+  </details>
+  <!-- /REPEAT -->
+
+  <h2 id="ai">AI-provenance signals</h2>
+  <p>{{aiProvenance.summary}}</p>
+  <p><em>These are areas to scrutinize when code was written with AI assistance — not defects by
+     themselves, but places where correctness and intent deserve a second look.</em></p>
+  <table>
+    <thead><tr><th>Signal</th><th>Detail</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <!-- REPEAT aiProvenance.signals[] -->
+      <tr><td><code>{{signal}}</code></td><td>{{detail}}</td>
+        <td><!-- REPEAT evidence[] --><code class="path">{{file}}:{{lines}}</code> <!-- /REPEAT --></td></tr>
+      <!-- /REPEAT -->
+    </tbody>
+  </table>
+
+  <h2 id="recs">Recommendations</h2>
+  <h3>Quick wins</h3>
+  <ul><!-- REPEAT recommendations.quickWins[] --><li><strong>{{title}}</strong> — {{why}} <span class="fid">[{{relatedFindingIds}}]</span></li><!-- /REPEAT --></ul>
+  <h3>Strategic</h3>
+  <ul><!-- REPEAT recommendations.strategic[] --><li><strong>{{title}}</strong> — {{why}} <span class="fid">[{{relatedFindingIds}}]</span></li><!-- /REPEAT --></ul>
+  <h3>Higher-risk changes</h3>
+  <ul><!-- REPEAT recommendations.risky[] --><li><strong>{{title}}</strong> — {{why}} <span class="fid">[{{relatedFindingIds}}]</span></li><!-- /REPEAT --></ul>
+
+  <h2 id="appendix">Methodology &amp; appendix</h2>
+  <p><strong>Approach:</strong> {{methodology.approach}}</p>
+  <div class="limits"><p><strong>Limitations &amp; what was not verified:</strong> {{methodology.limitations}}</p></div>
+  <p><strong>In scope:</strong> {{scopeIncluded}}</p>
+  <p><strong>Out of scope / not reviewed:</strong> {{scopeExcluded}}</p>
+
+  <footer>
+    Generated by the codebase-review skill (v{{skillVersion}}) against
+    <code>{{commitSha}}</code>. Findings source of truth: <code>findings.json</code>.
+    Plain-language companion: <code>founder-report.html</code>.
+  </footer>
+
+</div>
+<!-- Remove this block if diagrams are ASCII rather than Mermaid. -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+</script>
+</body>
+</html>

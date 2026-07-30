@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llm-skills/code-eval/findings.schema.json",
+  "title": "Codebase Review Findings",
+  "description": "Structured source of truth for a codebase review. Both HTML reports (founder + technical) render from this file. Diffing two of these files across time produces the delta/version view.",
+  "type": "object",
+  "required": ["meta", "scorecard", "executiveSummary", "findings", "recommendations", "methodology"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "Provenance stamp. Makes each report traceable to an exact state of the code.",
+      "required": ["repoName", "commitSha", "reviewDate", "skillVersion"],
+      "properties": {
+        "repoName": { "type": "string" },
+        "commitSha": { "type": "string", "description": "Full or short SHA the review was run against." },
+        "gitRef": { "type": "string", "description": "Branch or tag, e.g. main." },
+        "reviewDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD. Ask the user or read from git; never fabricate." },
+        "reviewer": { "type": "string" },
+        "skillVersion": { "type": "string" },
+        "scannedFileCount": { "type": "integer" },
+        "linesOfCode": { "type": "integer" },
+        "primaryLanguages": { "type": "array", "items": { "type": "string" } },
+        "scopeIncluded": { "type": "array", "items": { "type": "string" }, "description": "What was reviewed." },
+        "scopeExcluded": { "type": "array", "items": { "type": "string" }, "description": "Explicit 'not reviewed / out of scope' list. Required for honesty; empty array is not acceptable without justification." },
+        "overallConfidence": { "type": "string", "enum": ["high", "medium", "low"] }
+      }
+    },
+    "scorecard": {
+      "type": "array",
+      "description": "Top-of-report traffic lights. Keep to ~6 dimensions so a founder gets the picture in 15 seconds.",
+      "items": {
+        "type": "object",
+        "required": ["dimension", "rating", "score", "businessMeaning"],
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "enum": ["Overall health", "Security", "Maintainability", "Test coverage", "Documentation", "Key-person risk", "Operational readiness"]
+          },
+          "rating": { "type": "string", "enum": ["green", "amber", "red"] },
+          "score": { "type": "number", "minimum": 0, "maximum": 5, "description": "Per rubric.md. Enables comparison across versions." },
+          "businessMeaning": { "type": "string", "description": "One plain-language sentence a non-engineer understands." },
+          "trend": { "type": "string", "enum": ["improved", "unchanged", "declined", "new"], "description": "vs previous review, if one exists." }
+        }
+      }
+    },
+    "executiveSummary": {
+      "type": "string",
+      "description": "3-6 sentences, plain language, zero jargon. What this system is, what state it's in, the single most important thing to know."
+    },
+    "deltas": {
+      "type": ["object", "null"],
+      "description": "Populated only when a previous findings.json exists. Drives the 'Since last review' block.",
+      "properties": {
+        "previousCommitSha": { "type": "string" },
+        "previousReviewDate": { "type": "string", "format": "date" },
+        "summary": { "type": "string" },
+        "resolved": { "type": "array", "items": { "type": "string" }, "description": "Finding ids or titles closed since last review." },
+        "new": { "type": "array", "items": { "type": "string" } },
+        "changed": { "type": "array", "items": { "type": "string" }, "description": "Notable drift: architecture, dependencies, scope changes." }
+      }
+    },
+    "capabilityMap": {
+      "type": "array",
+      "description": "The direct answer to 'we don't know what the code does': each user-facing capability mapped to where it lives.",
+      "items": {
+        "type": "object",
+        "required": ["capability", "plainLanguage", "codeLocations"],
+        "properties": {
+          "capability": { "type": "string", "description": "User-facing feature name, e.g. 'MSP onboarding'." },
+          "plainLanguage": { "type": "string", "description": "What it does, for a non-engineer." },
+          "codeLocations": { "type": "array", "items": { "type": "string" }, "description": "Files/dirs that implement it, e.g. src/components/msp-onboarding/." },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "basis": { "type": "string", "enum": ["documented", "inferred"] }
+        }
+      }
+    },
+    "roleMatrix": {
+      "type": "array",
+      "description": "Internal roles/permissions if present. role -> allowed actions -> data scope.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string" },
+          "allowedActions": { "type": "array", "items": { "type": "string" } },
+          "dataScope": { "type": "string" }
+        }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "description": "The technical report renders a deep-dive from this: tech stack, multiple diagrams, cross-cutting concerns, and a feature x persona matrix. Aim for the depth of a standalone architecture report.",
+      "properties": {
+        "plainLanguage": { "type": "string", "description": "Plain-language description of the pieces (no metaphors; see SKILL.md Voice)." },
+        "technicalSummary": { "type": "string" },
+        "techStack": {
+          "type": "array",
+          "description": "Layer-by-layer stack: framework, language, styling, data layer, state, tooling, etc. Rendered as a table.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "layer": { "type": "string" },
+              "tech": { "type": "string" },
+              "role": { "type": "string" }
+            }
+          }
+        },
+        "diagrams": {
+          "type": "array",
+          "description": "Several complementary views, each a titled Mermaid diagram. Prefer at least: a system-context graph, a layered/dependency flowchart, a persona/route map, and a cross-actor lifecycle sequence. MERMAID GOTCHAS: never put ';' inside a sequenceDiagram message (it is a statement separator); never start a flowchart node label with '[/' (parses as a parallelogram); validate before shipping.",
+          "items": {
+            "type": "object",
+            "required": ["title", "mermaid"],
+            "properties": {
+              "title": { "type": "string" },
+              "description": { "type": "string", "description": "One line on what the diagram shows." },
+              "mermaid": { "type": "string", "description": "Valid Mermaid source, or ASCII fallback." }
+            }
+          }
+        },
+        "diagram": { "type": "string", "description": "DEPRECATED single-diagram field; prefer diagrams[]. Kept for back-compat." },
+        "crossCutting": {
+          "type": "array",
+          "description": "Concerns that span personas/modules (payments, AI, verification, state management, design system, etc.). Rendered as a table.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "capability": { "type": "string" },
+              "detail": { "type": "string", "description": "How it works and where it lives (cite modules)." }
+            }
+          }
+        },
+        "featureMatrix": {
+          "type": "array",
+          "description": "Feature x persona grid showing what each role can do with each feature. Adapt columns to the system's actual roles.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "feature": { "type": "string" }
+            },
+            "additionalProperties": { "type": "string", "description": "One column per role, e.g. po/msp/admin; value is what that role does (or '—')." }
+          }
+        },
+        "components": { "type": "array", "items": { "type": "string" } },
+        "externalDependencies": { "type": "array", "items": { "type": "string" }, "description": "Third-party services the system relies on (Stripe, auth, DB, etc.)." }
+      }
+    },
+    "dataModel": {
+      "type": "object",
+      "properties": {
+        "plainLanguage": { "type": "string" },
+        "diagram": { "type": "string", "description": "Mermaid ER diagram source or ASCII." },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "storage": { "type": "string", "description": "DB table, localStorage key, in-memory module, etc." }
+            }
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "description": "Extracted user/system flows. Double as seeds for how-to documentation.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "plainLanguage": { "type": "string" },
+          "steps": { "type": "array", "items": { "type": "string" }, "description": "Step-by-step; reusable as a how-to." },
+          "codeLocations": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "aiProvenance": {
+      "type": "object",
+      "description": "Signals relevant when code was written with AI assistance. Not an accusation; a scrutiny map.",
+      "properties": {
+        "summary": { "type": "string" },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "signal": { "type": "string", "enum": ["unused-dependency", "duplicated-block", "dead-code", "inconsistent-pattern", "untested-area", "hallucinated-api", "overcomplex", "other"] },
+              "detail": { "type": "string" },
+              "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "recommendations": {
+      "type": "object",
+      "required": ["quickWins", "strategic"],
+      "properties": {
+        "quickWins": { "type": "array", "items": { "$ref": "#/$defs/recommendation" }, "description": "Low effort, high value." },
+        "strategic": { "type": "array", "items": { "$ref": "#/$defs/recommendation" }, "description": "Higher effort / longer horizon." },
+        "risky": { "type": "array", "items": { "$ref": "#/$defs/recommendation" }, "description": "High-impact but higher-risk changes; flag clearly." }
+      }
+    },
+    "auditMappings": {
+      "type": "array",
+      "description": "Optional: map findings to a compliance framework for the audit-package output profile.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "framework": { "type": "string", "enum": ["OWASP-Top-10", "SOC2", "GDPR", "other"] },
+          "control": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "gap", "partial", "n/a"] },
+          "relatedFindingIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "methodology": {
+      "type": "object",
+      "required": ["approach", "limitations"],
+      "properties": {
+        "approach": { "type": "string", "description": "How the review was performed." },
+        "limitations": { "type": "string", "description": "What could not be verified and why. Required for trust." }
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "description": "Repo-relative path." },
+        "lines": { "type": "string", "description": "e.g. '42' or '42-58'." },
+        "note": { "type": "string" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "category", "title", "businessImpact", "severity", "confidence", "basis", "evidence"],
+      "properties": {
+        "id": { "type": "string", "description": "Stable id, e.g. SEC-01. Reused across versions so deltas can track it." },
+        "category": { "type": "string", "enum": ["security", "quality", "architecture", "operations", "data", "performance", "ai-provenance"] },
+        "title": { "type": "string" },
+        "businessImpact": { "type": "string", "description": "REQUIRED. 'What this means for you' in plain language: cost, risk, customer impact, or timeline." },
+        "technicalDetail": { "type": "string", "description": "For the technical report." },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" }, "description": "Cite-or-assume rule: every finding needs at least one evidence ref OR basis='inferred' with justification." },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "basis": { "type": "string", "enum": ["documented", "inferred"], "description": "documented = stated in code/docs; inferred = the reviewer's deduction." },
+        "recommendation": { "type": "string" },
+        "effort": { "type": "string", "enum": ["quick-win", "moderate", "significant"] }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["title", "why"],
+      "properties": {
+        "title": { "type": "string" },
+        "why": { "type": "string", "description": "Business rationale in plain language." },
+        "effort": { "type": "string", "enum": ["quick-win", "moderate", "significant"] },
+        "relatedFindingIds": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

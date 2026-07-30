@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!-- SYNTHETIC EXAMPLE — fictional "Larkspur" app. Rendered from examples/findings.json. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Larkspur — Codebase Review (Technical) — EXAMPLE</title>
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--card:#f8fafc;--accent:#2563eb;--red:#dc2626;--amber:#d97706;--green:#16a34a;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);margin:0}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 24px}
+  .demo{background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;font-size:13px;margin-bottom:20px}
+  header.masthead{border-bottom:3px solid var(--ink);padding-bottom:14px}
+  h1{font-size:26px;margin:0} .sub{color:var(--muted);font-size:14px}
+  .stamp{font-size:13px;color:var(--muted);margin:12px 0 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 20px}
+  h2{font-size:20px;margin:36px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 6px}
+  code,.path{font-family:var(--mono);font-size:.88em;background:var(--card);padding:1px 5px;border-radius:4px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .diagram{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto}
+  pre{font-family:var(--mono);font-size:13px;overflow:auto;margin:0}
+  .scoregrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+  .sc{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .sc .n{font-size:22px;font-weight:700} .sc.green .n{color:var(--green)} .sc.amber .n{color:var(--amber)} .sc.red .n{color:var(--red)}
+  .sc .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .finding{border:1px solid var(--line);border-radius:8px;margin:14px 0;overflow:hidden}
+  .finding>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;gap:10px;align-items:baseline;background:var(--card)}
+  .finding>summary::-webkit-details-marker{display:none}
+  .finding .body{padding:4px 16px 16px}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:20px;flex:none}
+  .sev-high{background:#fee2e2;color:var(--red)} .sev-medium{background:#fef3c7;color:var(--amber)} .sev-info{background:#e2e8f0;color:var(--muted)}
+  .fid{font-family:var(--mono);color:var(--muted);font-size:13px} .ftitle{font-weight:600}
+  .meta-row{font-size:12px;color:var(--muted);margin:6px 0} .meta-row b{color:var(--ink)}
+  .basis-documented{color:var(--green);font-weight:600}
+  footer{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="demo"><strong>Example output.</strong> "Larkspur" is a fictional app used to show the report shape. Not a real product or review.</div>
+
+  <header class="masthead"><h1>Larkspur — Codebase Review</h1><div class="sub">Technical report · evidence-cited</div></header>
+  <div class="stamp">
+    <span><b>Commit:</b> <code>b3f9c1a</code> (main)</span>
+    <span><b>Reviewed:</b> 2026-01-15</span>
+    <span><b>Files:</b> 84 · ~9,120 LOC</span>
+    <span><b>Languages:</b> TypeScript, React/TSX</span>
+  </div>
+
+  <h2>Executive summary</h2>
+  <p>Larkspur is a team-wiki SaaS (pages, comments, role-based access) built on Next.js App Router over Postgres via Prisma, with signed-cookie auth. The codebase is small and consistent. Two items matter before paying teams: a page-permission check enforced only client-side (SEC-01), and thin test coverage (QUAL-01).</p>
+
+  <h2>Scorecard</h2>
+  <div class="scoregrid">
+    <div class="sc amber"><div class="n">3.2</div><div class="l">Overall health</div></div>
+    <div class="sc amber"><div class="n">3.4</div><div class="l">Security</div></div>
+    <div class="sc green"><div class="n">4.1</div><div class="l">Maintainability</div></div>
+    <div class="sc red"><div class="n">1.5</div><div class="l">Test coverage</div></div>
+  </div>
+  <p class="meta-row">Scored 0–5 against rubric.md. 4.0–5.0 green · 2.5–3.9 amber · 0.0–2.4 red.</p>
+
+  <h2>Architecture</h2>
+  <p>Next.js App Router front end with a thin API layer (route handlers) over Postgres via Prisma. Auth uses signed session cookies. Domain logic lives in <code>src/lib/*</code>; features under <code>src/features/*</code>.</p>
+  <h3>Technology stack</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Technology</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Framework</strong></td><td>Next.js (App Router), React</td><td>Front end and API route handlers</td></tr>
+      <tr><td><strong>Data</strong></td><td>Postgres via Prisma</td><td>Storage for pages, comments, members</td></tr>
+      <tr><td><strong>Auth</strong></td><td>Signed session cookies</td><td>Authentication and workspace-role checks</td></tr>
+    </tbody>
+  </table>
+  <h3>System context</h3>
+  <div class="diagram"><pre class="mermaid">graph TD
+  U[Browser] --> APP[Next.js App Router]
+  APP --> API[Route handlers /api/*]
+  API --> ORM[Prisma]
+  ORM --> DB[(Postgres)]
+  APP --> LIB[src/lib/* - domain logic]</pre></div>
+  <h3>Cross-cutting capabilities</h3>
+  <table>
+    <thead><tr><th>Capability</th><th>How it works &amp; where it lives</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Authorization</strong></td><td>Role checks derive from workspace membership (<code>roles.ts</code>). Mostly server-side; see SEC-01 for the exception.</td></tr>
+      <tr><td><strong>Versioning</strong></td><td>Page edits stored as immutable revisions (<code>pages.ts</code>), enabling history and rollback.</td></tr>
+    </tbody>
+  </table>
+  <h3>Feature &times; role matrix</h3>
+  <table>
+    <thead><tr><th>Feature</th><th>Editor</th><th>Admin</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Pages</strong></td><td>Create / edit</td><td>Create / edit / delete</td></tr>
+      <tr><td><strong>Comments</strong></td><td>Add / resolve own</td><td>Add / resolve any</td></tr>
+      <tr><td><strong>Members</strong></td><td>—</td><td>Invite / remove / set role</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Data model</h2>
+  <div class="diagram"><pre class="mermaid">erDiagram
+  WORKSPACE ||--o{ MEMBER : has
+  WORKSPACE ||--o{ PAGE : contains
+  PAGE ||--o{ REVISION : versions
+  PAGE ||--o{ COMMENT : has
+  MEMBER ||--o{ COMMENT : writes</pre></div>
+
+  <h2>Findings</h2>
+  <details class="finding" open><summary><span class="badge sev-high">high</span><span class="fid">SEC-01</span><span class="ftitle">Page-permission check runs only in the browser</span></summary>
+    <div class="body">
+      <div class="meta-row"><b>Category:</b> security · <b>Confidence:</b> high · <b>Basis:</b> <span class="basis-documented">documented</span> · <b>Effort:</b> quick-win</div>
+      <p><strong>Business impact:</strong> A member could reach or edit a page they shouldn't by calling the API directly. Low blast radius today, but it undermines the role system paying teams rely on.</p>
+      <p><strong>Technical detail:</strong> The editor hides controls by role, but <code>PATCH /api/pages/[id]</code> does not re-check workspace role before writing.</p>
+      <p><strong>Recommendation:</strong> Add a server-side role assertion using <code>roles.ts</code> before any write.</p>
+      <div><strong>Evidence:</strong><ul><li><code class="path">src/app/api/pages/[id]/route.ts:22-40</code> — writes without a server-side role check</li><li><code class="path">src/features/pages/Editor.tsx:51-58</code> — role check is client-side only</li></ul></div>
+    </div>
+  </details>
+  <details class="finding"><summary><span class="badge sev-medium">medium</span><span class="fid">QUAL-01</span><span class="ftitle">Automated tests cover happy paths only</span></summary>
+    <div class="body">
+      <div class="meta-row"><b>Category:</b> quality · <b>Confidence:</b> high · <b>Basis:</b> <span class="basis-documented">documented</span> · <b>Effort:</b> moderate</div>
+      <p><strong>Business impact:</strong> Edge cases (permission failures, concurrent edits) can regress without a test catching them.</p>
+      <p><strong>Recommendation:</strong> Add tests for authorization and revision-conflict handling first.</p>
+      <div><strong>Evidence:</strong><ul><li><code class="path">src/lib/pages.test.ts:1-40</code> — only create/read paths covered</li></ul></div>
+    </div>
+  </details>
+  <details class="finding"><summary><span class="badge sev-info">positive</span><span class="fid">SEC-02</span><span class="ftitle">Secrets and sessions handled correctly</span></summary>
+    <div class="body">
+      <div class="meta-row"><b>Category:</b> security · <b>Confidence:</b> high · <b>Basis:</b> <span class="basis-documented">documented</span></div>
+      <p><strong>Business impact:</strong> Credentials are in environment config and sessions are signed cookies; the fundamentals are sound.</p>
+      <div><strong>Evidence:</strong><ul><li><code class="path">.env.example:1-6</code> — documents required vars; no real secrets tracked</li></ul></div>
+    </div>
+  </details>
+
+  <h2>OWASP mapping</h2>
+  <table><thead><tr><th>Control</th><th>Status</th><th>Findings</th></tr></thead>
+    <tbody><tr><td>A01: Broken Access Control</td><td style="color:var(--red);font-weight:600">gap</td><td>SEC-01</td></tr></tbody>
+  </table>
+
+  <h2>Methodology &amp; limitations</h2>
+  <p><strong>Approach:</strong> Static, evidence-cited review at commit b3f9c1a against the fixed rubric. Synthetic example.</p>
+  <p><strong>Limitations:</strong> Illustrative sample only. The app was not executed; runtime, accessibility, and performance were not assessed.</p>
+
+  <footer>Generated by the codebase-review skill. Findings source of truth: <code>findings.json</code>.</footer>
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+</script>
+</body>
+</html>

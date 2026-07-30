@@ -1,9 +1,9 @@
 {
   "oobo_version": "0.1.14",
   "commit_hash": "4cbef34d229aff59ece73b5f33cde24fbfb78417",
-  "branch": "readme-nondestructive-note",
+  "branch": "main",
   "author": "chuck-blevins <chuck@chuckblevins.com>",
-  "author_type": "agent",
+  "author_type": "assisted",
   "contributors": [
     {
       "name": "chuck-blevins <chuck@chuckblevins.com>",
@@ -14,7 +14,7 @@
       "role": "agent"
     }
   ],
-  "committed_at": 1785373841,
+  "committed_at": 1785373883,
   "message": "docs(readme): document non-destructive output behavior",
   "files_changed": [
     "README.md"
@@ -30,53 +30,14 @@
       "agent": "claude",
       "line_attributions": [
         {
-          "author": "human",
+          "author": "ai",
           "ranges": [
-            {
-              "start": 31,
-              "end": 31
-            },
-            {
-              "start": 34,
-              "end": 34
-            },
-            {
-              "start": 38,
-              "end": 38
-            },
-            {
-              "start": 43,
-              "end": 43
-            },
-            {
-              "start": 45,
-              "end": 63
-            },
-            {
-              "start": 78,
-              "end": 78
-            },
-            {
-              "start": 86,
-              "end": 86
-            },
-            {
-              "start": 99,
-              "end": 100
-            },
             {
               "start": 105,
               "end": 113
-            },
-            {
-              "start": 119,
-              "end": 119
-            },
-            {
-              "start": 132,
-              "end": 135
             }
-          ]
+          ],
+          "agent": "claude"
         }
       ]
     }

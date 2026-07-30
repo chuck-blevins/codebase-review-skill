@@ -1,0 +1,288 @@
+{
+  "oobo_version": "0.1.14",
+  "commit_hash": "124e882e3a34a8cdec4cdc3be94fc6bcc5204d7f",
+  "branch": "rev-categorization",
+  "author": "chuck-blevins <chuck@chuckblevins.com>",
+  "author_type": "agent",
+  "contributors": [
+    {
+      "name": "chuck-blevins <chuck@chuckblevins.com>",
+      "role": "human"
+    },
+    {
+      "name": "claude",
+      "role": "agent"
+    }
+  ],
+  "committed_at": 1785373409,
+  "message": "revised to support rev ops",
+  "files_changed": [
+    "CONTRIBUTING.md",
+    "README.md",
+    "SKILL.md",
+    "SPEC-feature-inventory.md",
+    "SPEC-value-coverage.md",
+    "schema/findings.schema.json",
+    "templates/feature-inventory.csv",
+    "templates/founder-report.html",
+    "templates/technical-report.html"
+  ],
+  "added": 571,
+  "deleted": 390,
+  "file_changes": [
+    {
+      "path": "CONTRIBUTING.md",
+      "added": 8,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 40,
+              "end": 41
+            },
+            {
+              "start": 44,
+              "end": 49
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "README.md",
+      "added": 32,
+      "deleted": 10,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 31,
+              "end": 31
+            },
+            {
+              "start": 34,
+              "end": 34
+            },
+            {
+              "start": 38,
+              "end": 38
+            },
+            {
+              "start": 43,
+              "end": 43
+            },
+            {
+              "start": 45,
+              "end": 63
+            },
+            {
+              "start": 78,
+              "end": 78
+            },
+            {
+              "start": 86,
+              "end": 86
+            },
+            {
+              "start": 99,
+              "end": 100
+            },
+            {
+              "start": 110,
+              "end": 110
+            },
+            {
+              "start": 123,
+              "end": 126
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "SKILL.md",
+      "added": 91,
+      "deleted": 11,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 3,
+              "end": 4
+            },
+            {
+              "start": 30,
+              "end": 35
+            },
+            {
+              "start": 43,
+              "end": 43
+            },
+            {
+              "start": 48,
+              "end": 48
+            },
+            {
+              "start": 61,
+              "end": 72
+            },
+            {
+              "start": 79,
+              "end": 85
+            },
+            {
+              "start": 91,
+              "end": 92
+            },
+            {
+              "start": 94,
+              "end": 96
+            },
+            {
+              "start": 108,
+              "end": 150
+            },
+            {
+              "start": 162,
+              "end": 170
+            },
+            {
+              "start": 203,
+              "end": 207
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "SPEC-feature-inventory.md",
+      "added": 374,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 1,
+              "end": 374
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "SPEC-value-coverage.md",
+      "added": 0,
+      "deleted": 365,
+      "attribution": "human"
+    },
+    {
+      "path": "schema/findings.schema.json",
+      "added": 41,
+      "deleted": 1,
+      "attribution": "human"
+    },
+    {
+      "path": "templates/feature-inventory.csv",
+      "added": 1,
+      "deleted": 0,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 1,
+              "end": 1
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "templates/founder-report.html",
+      "added": 18,
+      "deleted": 2,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 14,
+              "end": 15
+            },
+            {
+              "start": 37,
+              "end": 40
+            },
+            {
+              "start": 75,
+              "end": 75
+            },
+            {
+              "start": 98,
+              "end": 108
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    },
+    {
+      "path": "templates/technical-report.html",
+      "added": 6,
+      "deleted": 1,
+      "attribution": "ai",
+      "agent": "claude",
+      "line_attributions": [
+        {
+          "author": "ai",
+          "ranges": [
+            {
+              "start": 93,
+              "end": 96
+            },
+            {
+              "start": 98,
+              "end": 98
+            },
+            {
+              "start": 106,
+              "end": 106
+            }
+          ],
+          "agent": "claude"
+        }
+      ]
+    }
+  ],
+  "ai_added": 530,
+  "ai_deleted": 24,
+  "human_added": 41,
+  "human_deleted": 366,
+  "ai_percentage": 57.64828303850156,
+  "session_ids": [
+    "ebef860b-740d-4ff6-b65f-3f22517ebd68"
+  ],
+  "transparency_mode": "off"
+}

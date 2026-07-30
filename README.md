@@ -28,22 +28,39 @@ isn't fully sure what it does, how healthy it is, or what to fix first.
 
 ## What it produces
 
-One review run writes three artifacts to `<repo>/documents/code-review/<date>_<sha>/`:
+One review run writes four artifacts to `<repo>/documents/code-review/<date>_<sha>/`:
 
 | File | Audience | Contents |
-|------|----------|----------|
+| --- | --- | --- |
 | `findings.json` | machine / source of truth | Every finding, score, capability, diagram, and recommendation as structured data. Everything else renders from this. |
 | `founder-report.html` | founders / board | Plain-language traffic-light scorecard, "what this means for you" per finding, version deltas, glossary, questions to ask your team. Print-to-PDF friendly. |
 | `technical-report.html` | dev team / auditors | Evidence-cited findings (`file:line`), tech stack, architecture diagrams, capability→code map, data model, cross-cutting concerns, AI-provenance signals, OWASP mapping. |
+| `feature-inventory.csv` | revenue / product | Every user-facing feature and flow the reviewer found in the code, with what it does, where it lives, and whether it is backed by working code or only renders from mock data. Value and positioning columns are emitted blank, for a human to fill. |
 
 Because the findings are structured, the same review re-renders into other formats (audit package,
 how-to docs) and **diffs across versions** so you can track a codebase over time.
 
-## Why two reports from one source
+## What the feature inventory is for
 
-`findings.json` is the single source of truth. The two HTML reports are just *renderings* of it.
-That split is what makes the output **versionable** (diff the JSON, not the HTML) and **reusable**
-(re-target the same findings without re-scanning the code).
+The CSV is the reviewer's **perception of the codebase**, not a canonical feature list. Nothing is
+supplied to it to match against, so there is no right answer about what counts as a feature. It does
+two jobs. It lets you hold the AI's list against your own understanding of the product and find where
+they disagree — features you didn't know were built, features you believed were built that the code
+does not support. And it gives whoever owns positioning a populated sheet to start from, with
+implementation states and code citations already filled in, instead of a blank one.
+
+**The skill never assigns business value.** Value category, business-value prose, sales grouping, and
+buyer archetype are emitted as empty columns. That judgment belongs to a human, and a plausible guess
+is worse than a blank: a blank gets filled, a guess gets shipped.
+
+**The handoff is one-way.** Whatever you build from the CSV is yours. The skill does not read it back,
+reconcile against it, or update it.
+
+## Why several outputs from one source
+
+`findings.json` is the single source of truth. The two HTML reports and the CSV are just *renderings*
+of it. That split is what makes the output **versionable** (diff the JSON, not the HTML) and
+**reusable** (re-target the same findings without re-scanning the code).
 
 ## Requirements
 
@@ -58,7 +75,7 @@ That split is what makes the output **versionable** (diff the JSON, not the HTML
 
 Copy this folder into wherever your agent host discovers skills, then invoke it by name.
 
-```
+```text
 your-skills-dir/
   codebase-review/        <- this folder (the directory name is up to you)
     SKILL.md
@@ -66,6 +83,7 @@ your-skills-dir/
     schema/findings.schema.json
     templates/founder-report.html
     templates/technical-report.html
+    templates/feature-inventory.csv
     examples/             <- synthetic sample so you can see the output shape
 ```
 
@@ -78,8 +96,8 @@ Point your agent at a repository and ask it to run the codebase review, e.g.:
 > "Run the codebase-review skill against this repo."
 
 The skill will scan the code, score each dimension against `rubric.md`, assemble `findings.json`,
-and render both reports. On a repo it has reviewed before, it fills in the version-over-version
-`deltas` automatically.
+and render both reports plus the feature inventory. On a repo it has reviewed before, it fills in the
+version-over-version `deltas` automatically.
 
 The default output location is `<repo>/documents/code-review/<date>_<sha>/`. Change the path in
 `SKILL.md` if your project stores docs elsewhere.
@@ -89,7 +107,7 @@ The default output location is `<repo>/documents/code-review/<date>_<sha>/`. Cha
 - **`SKILL.md`** — the instructions the agent follows (process, rules, voice, versioning).
 - **`rubric.md`** — the fixed 0–5 scoring definitions that make reviews comparable across versions.
 - **`schema/findings.schema.json`** — the contract for `findings.json`.
-- **`templates/`** — the two HTML report scaffolds.
+- **`templates/`** — the two HTML report scaffolds and the feature-inventory CSV header contract.
 - **`examples/`** — a synthetic sample review of a fictional app.
 
 ## Important limitations
@@ -102,6 +120,10 @@ The default output location is `<repo>/documents/code-review/<date>_<sha>/`. Cha
   accessibility, and performance issues are out of scope unless you extend it.
 - Severity is calibrated to the codebase's stage; a "medium" in a prototype may be a "critical" in
   production. The report states its own scope and limitations — read them.
+- The feature inventory is one reading of the code, not a definitive product catalogue. Where it draws
+  the line between "one feature" and "three" is a judgment call, and it will differ from yours. That is
+  the point — the disagreements are where you learn something. Treat the row count as a denominator for
+  that conversation, not as a fact about the product.
 
 ## License
 

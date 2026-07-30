@@ -37,7 +37,15 @@ for it too, or the scores won't be reproducible.
 - **Audit package** — populate `auditMappings` (OWASP / SOC 2 / GDPR) and lead the technical report
   with the control table.
 - **How-tos** — `workflows[].steps` are written to double as step-by-step user guides.
+- **Feature inventory** — `featureInventory[]` projects to `feature-inventory.csv` at feature and flow
+  grain, with the value/positioning columns emitted blank for a revenue owner to fill offline.
 To add a profile, write a new template that reads the same `findings.json`.
+
+**The enrichment loop is deliberately one-way.** Whatever a human produces from the inventory CSV is an
+artifact the skill does not read back. Do not add a profile that consumes it. Reading enriched documents
+in would make the review's output depend on positioning judgment and require reconciling two
+independently-authored artifacts on every run — which is the design this feature replaced. If you want
+that, fork it; do not bolt it on here.
 
 ## Tune the voice
 The founder report uses a deliberate register (concise product/SaaS leader; no "it's not X, it's Y"

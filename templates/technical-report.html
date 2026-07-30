@@ -90,8 +90,12 @@
 
   <h2 id="capabilities">Capability → code map</h2>
   <p>Where each user-facing capability lives in the codebase.</p>
+  <!-- INVENTORY COL: the <th>Features</th> and its matching <td class="fid"> exist only when
+       findings.json has featureInventory[]. Delete both cells when it is absent. Per-feature detail
+       (state, evidence, plain language) lives in feature-inventory.csv, not here — a 90-row table is
+       worse than a spreadsheet at every job a reader would use it for. -->
   <table>
-    <thead><tr><th>Capability</th><th>Description</th><th>Code locations</th><th>Basis</th></tr></thead>
+    <thead><tr><th>Capability</th><th>Description</th><th>Code locations</th><th>Basis</th><th>Features</th></tr></thead>
     <tbody>
       <!-- REPEAT capabilityMap[] -->
       <tr>
@@ -99,6 +103,7 @@
         <td>{{plainLanguage}}</td>
         <td><!-- REPEAT codeLocations[] --><code class="path">{{loc}}</code> <!-- /REPEAT --></td>
         <td class="basis-{{basis}}">{{basis}} ({{confidence}})</td>
+        <td class="fid"><!-- REPEAT featureIds[] -->{{featureId}} <!-- /REPEAT --></td>
       </tr>
       <!-- /REPEAT -->
     </tbody>

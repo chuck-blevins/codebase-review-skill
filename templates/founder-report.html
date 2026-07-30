@@ -11,7 +11,8 @@
     - Technical detail is deliberately OMITTED here — it lives in the technical report.
     - Self-contained: inline all CSS. Print-friendly (this gets exported to PDF for board decks).
   Replace every {{TOKEN}} and repeat the marked blocks per array item. Delete the "Since last
-  review" section entirely if findings.deltas is null.
+  review" section entirely if findings.deltas is null, and the inventory callout if
+  findings.featureInventory is absent.
 -->
 <html lang="en">
 <head>
@@ -33,6 +34,10 @@
   .stamp{font-size:13px;color:var(--muted);margin:12px 0 32px;display:flex;flex-wrap:wrap;gap:6px 20px}
   h2{font-size:20px;margin:40px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
   .lead{font-size:18px;line-height:1.55;background:var(--card);border-left:4px solid var(--ink);padding:16px 20px;border-radius:0 8px 8px 0}
+  /* Feature inventory callout */
+  .inventory-callout{font-size:16px;line-height:1.55;background:#eff6ff;border-left:4px solid #1e40af;padding:14px 20px;border-radius:0 8px 8px 0;margin:16px 0}
+  .inventory-callout .meta-row{display:block;font-size:13px;color:var(--muted);margin-top:6px}
+  .inventory-callout code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
   /* Scorecard */
   .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
   .tile{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--card)}
@@ -67,7 +72,7 @@
   .glossary dt{font-weight:600;margin-top:8px} .glossary dd{margin:0 0 4px;color:var(--muted);font-size:14px}
   footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
   @media print{
-    body{font-size:12px} .wrap{padding:0} h2{page-break-after:avoid} .finding,.tile,.deltas{page-break-inside:avoid}
+    body{font-size:12px} .wrap{padding:0} h2{page-break-after:avoid} .finding,.tile,.deltas,.inventory-callout{page-break-inside:avoid}
     a{color:inherit;text-decoration:none}
   }
 </style>
@@ -89,6 +94,17 @@
   <!-- ============ AT A GLANCE ============ -->
   <h2>At a glance</h2>
   <p class="lead">{{executiveSummary}}</p>
+
+  <!-- ============ INVENTORY CALLOUT (delete whole block if featureInventory is absent) ============
+       The headline is REQUIRED when this block renders: one sentence carrying the counts AND the
+       denominator. It speaks only in implementation terms ("Of 90 user-facing features and flows, 22
+       are demo-only"). It cannot say which business value is exposed — this skill does not assign
+       business value. -->
+  <p class="inventory-callout">
+    {{meta.featureInventory.headline}}
+    <span class="meta-row">Full inventory: <code>feature-inventory.csv</code> — feature and flow list with
+    implementation state and code citations, ready for revenue and product positioning.</span>
+  </p>
 
   <div class="scorecard">
     <!-- REPEAT per scorecard[] -->

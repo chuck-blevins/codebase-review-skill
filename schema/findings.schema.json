@@ -22,7 +22,26 @@
         "primaryLanguages": { "type": "array", "items": { "type": "string" } },
         "scopeIncluded": { "type": "array", "items": { "type": "string" }, "description": "What was reviewed." },
         "scopeExcluded": { "type": "array", "items": { "type": "string" }, "description": "Explicit 'not reviewed / out of scope' list. Required for honesty; empty array is not acceptable without justification." },
-        "overallConfidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        "overallConfidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "featureInventory": {
+          "type": "object",
+          "description": "Rollup for the featureInventory[] array. Present whenever that array is.",
+          "required": ["count", "headline"],
+          "properties": {
+            "count": { "type": "integer", "description": "Rows emitted. The denominator for any percentage stated anywhere." },
+            "stateCounts": {
+              "type": "object",
+              "description": "Computed rollup. implemented + partial + uiOnly MUST equal count.",
+              "properties": {
+                "implemented": { "type": "integer" },
+                "partial": { "type": "integer" },
+                "uiOnly": { "type": "integer" }
+              }
+            },
+            "grainNote": { "type": "string", "description": "One sentence on the lens that produced this list, so a reader knows what they are comparing their own understanding against. See SKILL.md 'Feature grain'." },
+            "headline": { "type": "string", "description": "One sentence, founder voice, carrying the counts AND the denominator. Rendered in the founder report. Required when featureInventory[] exists." }
+          }
+        }
       }
     },
     "scorecard": {
@@ -69,6 +88,27 @@
           "capability": { "type": "string", "description": "User-facing feature name, e.g. 'MSP onboarding'." },
           "plainLanguage": { "type": "string", "description": "What it does, for a non-engineer." },
           "codeLocations": { "type": "array", "items": { "type": "string" }, "description": "Files/dirs that implement it, e.g. src/components/msp-onboarding/." },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "basis": { "type": "string", "enum": ["documented", "inferred"] },
+          "featureIds": { "type": "array", "items": { "type": "string" }, "description": "featureInventory[] ids rolling up to this capability. Every inventory row belongs to exactly one capability; a capability with an empty array is a bug in the inventory." }
+        }
+      }
+    },
+    "featureInventory": {
+      "type": "array",
+      "description": "The reviewer's perception of the product's user-facing features and flows, derived from code. The fine-grained expansion of capabilityMap. NOT a canonical registry: no external list is supplied, so there is no right answer about what counts as a feature — see SKILL.md 'Feature grain'. Projects to feature-inventory.csv, which a revenue owner enriches offline. Nothing they do with it returns to the review.",
+      "items": {
+        "type": "object",
+        "required": ["featureId", "kind", "name", "plainLanguage", "state", "evidence", "confidence", "basis"],
+        "properties": {
+          "featureId": { "type": "string", "description": "Sequential within this review, prefix 'FI-' (e.g. FI-001). Carried forward from a prior review when a row is recognizably the same feature, as a reader convenience. Not a contract: no high-water mark, no append-only invariant." },
+          "kind": { "type": "string", "enum": ["feature", "flow"], "description": "feature = a discrete thing a user can do. flow = a multi-step path across features (e.g. need -> RFP -> award -> SOW). Flows are frequently what gets positioned, so they earn rows of their own." },
+          "name": { "type": "string", "description": "Short name a non-engineer would recognize." },
+          "plainLanguage": { "type": "string", "description": "What it does, for a non-engineer. One or two sentences. Must stand alone — this is read in a spreadsheet, away from the reports." },
+          "area": { "type": "string", "description": "Product area from the code's own structure (route group, directory). NOT a sales category." },
+          "capability": { "type": "string", "description": "Name of the capabilityMap[] entry this rolls up to." },
+          "state": { "type": "string", "enum": ["implemented", "partial", "ui-only"], "description": "implemented = works end to end. partial = some of it real, some not. ui-only = screen renders from mock or sample data, no working backend." },
+          "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" }, "description": "Cite-or-assume applies per row. 'partial' cites both the working part and the gap; 'ui-only' cites the mock or sample-data source." },
           "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
           "basis": { "type": "string", "enum": ["documented", "inferred"] }
         }

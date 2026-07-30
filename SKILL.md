@@ -1,7 +1,7 @@
 ---
 name: codebase-review
-description: Review a local git repository and produce a versioned, stakeholder-ready codebase assessment. Emits a structured findings.json (source of truth) plus two rendered reports — a plain-language founder/board summary and an evidence-cited technical report — covering purpose, capability→code map, architecture, data model, roles, security, quality, operations, AI-provenance, and prioritized recommendations. Supports version-over-version deltas and re-use as a basis for audit and how-to documentation.
-version: 2.1.0
+description: Review a local git repository and produce a versioned, stakeholder-ready codebase assessment. Emits a structured findings.json (source of truth) plus two rendered reports — a plain-language founder/board summary and an evidence-cited technical report — covering purpose, capability→code map, architecture, data model, roles, security, quality, operations, AI-provenance, and prioritized recommendations. Also emits a code-derived feature and flow inventory as a CSV with per-row implementation state: a starting point for revenue and product positioning, and a way to check a team's understanding of the product against what the code actually supports. Supports version-over-version deltas and re-use as a basis for audit and how-to documentation.
+version: 2.2.0
 license: MIT
 ---
 
@@ -27,6 +27,12 @@ Do **not** hand-write HTML narratives. Produce data, then render.
 3. **`technical-report.html`** — evidence-cited report for the dev team / auditors. Renders from
    `templates/technical-report.html`. Every claim carries `file:line` evidence and a
    documented-vs-inferred basis.
+4. **`feature-inventory.csv`** — the reviewer's list of user-facing features and flows, each with what
+   it does, where it lives, and whether it is backed by working code. Projected mechanically from
+   `featureInventory[]` using the header in `templates/feature-inventory.csv`. The columns a revenue
+   owner needs (value category, business value, sales grouping, buyer archetype) are emitted
+   **blank**. This output states what the code appears to do. It does not assign business value, and
+   nothing a human does with it downstream returns to the review.
 
 This split is what makes the output **versionable** (diff the JSON, not the HTML) and **reusable**
 (re-render the same findings into audit or how-to docs without re-scanning).
@@ -34,11 +40,12 @@ This split is what makes the output **versionable** (diff the JSON, not the HTML
 ## Output location & versioning convention
 Write to the repository's own `documents/` directory, one folder per review, named by date + short SHA:
 
-```
+```text
 <repo>/documents/code-review/<YYYY-MM-DD>_<shortSHA>/
     findings.json
     founder-report.html
     technical-report.html
+    feature-inventory.csv
 ```
 
 - Read the date and SHA from git (`git rev-parse --short HEAD`, `git show -s --format=%cd`); never
@@ -51,25 +58,42 @@ Write to the repository's own `documents/` directory, one folder per review, nam
   reviewer-judgment wobble. Pin finding `severity` with the stage anchors in `rubric.md`.
 - `documents/` may be git-ignored (it often is) — that's fine; versioning is by dated folder, not by commit.
 
+### Non-destructive output
+
+Write **only** inside the dated review folder, and never modify anything a human put in `documents/`.
+
+- If a target file already exists (re-running a review at the same date and SHA), emit a new version
+  rather than overwriting: `findings.v2.json`, `founder-report.v2.html`, `feature-inventory.v2.csv`,
+  then `.v3`, and so on. Never overwrite.
+- Documents a human placed in `documents/` — enriched inventories, value repositories, category
+  guides, positioning decks — are **read-only** to this skill. Do not parse them, reconcile against
+  them, or update them. If asked to revise one, emit a new version alongside and leave the original
+  untouched.
+
 ## How to review
 1. Start at the repo root. Capture provenance (repo name, SHA, ref, date, languages, LOC, file count).
 2. Scan README, docs, package manifests, lockfiles, CI/CD config, Docker/K8s/infra files, and source.
 3. Identify purpose, target personas, and the problems the system solves.
 4. Build the **capability → code map**: every user-facing feature mapped to the files that implement
    it. This is the direct answer to "we don't know what the code does."
-5. Extract workflows (reusable later as how-to docs) and the internal role/permission matrix.
-6. Map architecture to the depth of a standalone architecture report: a layered tech stack
+5. Expand the capability map into a **feature and flow inventory** (`featureInventory[]`). Enumerate
+   what a user can do, at the grain described in *Feature grain* below, and give each row a `state`
+   (`implemented` / `partial` / `ui-only`) with evidence. Include multi-step flows as their own rows
+   (`kind: "flow"`). Leave every value and positioning column blank — that is a revenue owner's
+   judgment, not the reviewer's.
+6. Extract workflows (reusable later as how-to docs) and the internal role/permission matrix.
+7. Map architecture to the depth of a standalone architecture report: a layered tech stack
    (`architecture.techStack`), several complementary Mermaid diagrams (`architecture.diagrams` —
    at least a system-context graph, a layered/dependency flowchart, a persona/route map, and a
    cross-actor lifecycle sequence), cross-cutting concerns (`architecture.crossCutting` — payments,
    AI, verification, state management, design system, etc.), a feature×persona matrix
    (`architecture.featureMatrix`), runtime flow, and external dependencies.
-7. Extract the data model: entities, relationships, storage, data flow.
-8. Assess security, code quality, and operations. Score each scorecard dimension against
+8. Extract the data model: entities, relationships, storage, data flow.
+9. Assess security, code quality, and operations. Score each scorecard dimension against
    `rubric.md` — use the fixed rubric so scores are comparable across versions.
-9. Scan for **AI-provenance signals** (unused deps, duplicated blocks, dead code, inconsistent
-   patterns, untested areas, hallucinated APIs) — relevant when code was AI-assisted.
-10. Assemble `findings.json`, then render both reports from the templates.
+10. Scan for **AI-provenance signals** (unused deps, duplicated blocks, dead code, inconsistent
+    patterns, untested areas, hallucinated APIs) — relevant when code was AI-assisted.
+11. Assemble `findings.json`, then render both reports and the inventory CSV from the templates.
 
 ## Non-negotiable rules
 - **Cite or mark as assumption.** Every finding needs ≥1 evidence ref (`file:line`) OR
@@ -81,6 +105,49 @@ Write to the repository's own `documents/` directory, one folder per review, nam
   did NOT review. Silent gaps read as false completeness.
 - **Determinism for diffs.** Stable finding ids and the fixed rubric make version-over-version
   comparison meaningful.
+- **Never author a business-value judgment.** Value category, business-value prose, sales grouping,
+  and buyer archetype are out of scope for this skill. Blank is the correct output. A plausible guess
+  is worse than a blank, because a blank gets filled and a guess gets shipped.
+- **Cite-or-assume applies per inventory row.** Never mark a row `implemented` without `file:line`
+  evidence. `partial` requires evidence of both the working part and the gap; `ui-only` requires
+  evidence of the mock or sample-data source.
+- **Every count states its denominator.** Render `meta.featureInventory.count` alongside any
+  percentage. A bare percentage reads as the whole product.
+- **Never overwrite, never write outside the review folder.** See *Non-destructive output*.
+
+## Feature grain
+
+The inventory is **the skill's perception of the codebase**, not a canonical feature registry. No list
+is supplied to match against, so there is no right or wrong answer about what counts as a feature. Its
+job is to be legible enough that a human can hold it against their own understanding of the product
+and see where the two disagree — features they didn't know were built, features they believed were
+built that the code does not support, and descriptions that reveal the reviewer misread something.
+
+That makes grain a legibility problem, not a correctness one.
+
+**Grain guidance.** Aim for the grain a demo or a pricing page would use. Derive it by enumerating
+routes and screens from the code's own structure, then the distinct user actions within each, then the
+multi-step paths that cross them (`kind: "flow"`).
+
+- A navigation affordance is not a row unless it is the only entry point to a capability.
+- A CRUD set on one entity is one row, not four, unless the states are separately meaningful to a user
+  (an approval workflow is not the same thing as record creation).
+- **When unsure, split rather than merge.** A too-fine row is easy for a reader to combine; a
+  too-coarse row hides a feature they would otherwise have noticed was missing. The asymmetry favors
+  splitting.
+
+State the lens you used in `meta.featureInventory.grainNote`, so a reader knows what they are
+comparing against.
+
+**Ids.** Sequential within a review, prefix `FI-` (`FI-001`). On re-review, carry a prior id forward
+when a row is recognizably the same feature — match on name, then capability, then code location. This
+is a convenience for anyone diffing two CSVs, not a contract: no high-water mark, no append-only
+invariant, no renumbering rules.
+
+**The inventory does not participate in `deltas`.** Granularity movement between reviews is reviewer
+perception, not a code change, and logging it as churn is the same false-delta problem `rubric.md`
+guards against for scores. `deltas` stays at the capability and finding level. Because every emitted
+CSV is preserved, diffing two versions is the change signal.
 
 ## Output format
 - Reports are valid, self-contained HTML rendered from the templates (inline CSS; founder report
@@ -92,7 +159,15 @@ Write to the repository's own `documents/` directory, one folder per review, nam
   architecture docs/diagrams, reconcile against the current code and correct anything stale rather than
   copying it forward (e.g. a role that has since grown a full portal).
 - Fill every `{{TOKEN}}`, repeat each marked block per array item, and delete optional blocks
-  (e.g. "Since last review") when their data is absent.
+  (e.g. "Since last review", the founder report's inventory callout) when their data is absent.
+- `feature-inventory.csv` is a mechanical projection of `featureInventory[]` onto the header in
+  `templates/feature-inventory.csv`. Never hand-author it and never let it drift from `findings.json`.
+  UTF-8, RFC 4180 quoting, `;`-joined multi-values inside a quoted cell, rows in `feature_id` order so
+  two preserved versions diff cleanly. No preamble comment line — it breaks spreadsheet import;
+  provenance lives in the containing dated folder and in `findings.json`.
+- Emit the inventory on every review. Skip it only for repos with no meaningful user-facing surface (a
+  library, a CLI with no product features), where it would be noise — and say so in
+  `methodology.limitations` when you skip it.
 
 ## Voice (applies to all rendered founder-facing prose)
 Write the founder report as a concise, experienced product/SaaS leader would — the way a memo to
@@ -125,6 +200,11 @@ Before → after:
   report with the control table; findings already carry evidence for traceability.
 - **How-tos / user docs** — the `workflows[].steps` are written to double as step-by-step guides.
 - **Board one-pager** — the founder report's scorecard + deltas + top findings, printed to PDF.
+- **Feature inventory** — `featureInventory[]` projects to a CSV at feature and flow grain for a
+  revenue owner to enrich offline. **One direction only.** Whatever they produce — an enriched sheet, a
+  value repository, a category guide — is an artifact this skill does not read back. Reading it back
+  would make the review's output depend on a human's positioning judgment and require reconciling it
+  on every run. Emit, hand off, stop.
 
 ## Large repositories
 If the codebase is too large for one pass, chunk by service/top-level directory: review each,
